@@ -1,0 +1,79 @@
+# Base template for Randomized Controlled Trials (RCTs)
+# This file defines the default fields for a new SRMA project.
+
+template_name: "Randomized Controlled Trial (RCT)"
+template_id: "rct_v1"
+
+sections:
+  - section_name: "Study Identification"
+    fields:
+      - label: "Study ID"
+        field_type: "text"
+      - label: "Reference citation"
+        field_type: "textarea"
+      - label: "Publication type"
+        field_type: "text"
+
+  - section_name: "Study Characteristics"
+    fields:
+      - label: "Aim of study"
+        field_type: "text"
+      - label: "Study design"
+        field_type: "text"
+      - label: "Unit of allocation"
+        field_type: "text"
+      - label: "Ethical approval obtained"
+        field_type: "text"
+
+  - section_name: "Participants"
+    fields:
+      - label: "Population description"
+        field_type: "textarea"
+      - label: "Setting"
+        field_type: "textarea"
+      - label: "Inclusion criteria"
+        field_type: "textarea"
+      - label: "Exclusion criteria"
+        field_type: "textarea"
+      - label: "Method of recruitment"
+        field_type: "text"
+      - label: "Total number randomised"
+        field_type: "integer"
+      - label: "Age"
+        field_type: "text"
+      - label: "Sex"
+        field_type: "text"
+      - label: "Baseline imbalances"
+        field_type: "textarea"
+      - label: "Withdrawals and exclusions"
+        field_type: "textarea"
+
+  - section_name: "Intervention Details"
+    fields:
+      - label: "Intervention group name"
+        field_type: "text"
+      - label: "Intervention group description"
+        field_type: "textarea"
+      - label: "Number in intervention group"
+        field_type: "integer"
+
+  - section_name: "Control/Comparator Details"
+    fields:
+      - label: "Control group name"
+        field_type: "text"
+      - label: "Control group description"
+        field_type: "textarea"
+      - label: "Number in control group"
+        field_type: "integer"
+
+  - section_name: "Outcomes"
+    fields: []
+
+  - section_name: "Other Information"
+    fields:
+      - label: "Study funding sources"
+        field_type: "textarea"
+      - label: "Conflicts of interest"
+        field_type: "textarea"
+      - label: "Key conclusions of study authors"
+        field_type: "textarea"
