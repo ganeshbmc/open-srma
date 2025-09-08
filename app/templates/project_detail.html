@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>{{ project.name }}</h1>
+    <p>{{ project.description }}</p>
+
+    <h2>Studies</h2>
+    <ul>
+        {% for study in studies %}
+        <li>{{ study.title }} ({{ study.author }}, {{ study.year }})</li>
+        {% endfor %}
+    </ul>
+
+    <a href="{{ url_for('add_study', project_id=project.id) }}">Add Study</a>
+    <br>
+    <a href="{{ url_for('index') }}">Back to Projects</a>
+{% endblock %}
