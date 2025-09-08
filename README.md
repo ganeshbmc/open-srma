@@ -14,6 +14,19 @@ It supports the SRMA workflow — from **data extraction** to **narrative synthe
 - 📈 One-click HTML/PDF reports with forest/funnel plots and model summaries
 - 🔐 Audit trails and version control for transparent review workflows
 
+### 🏗️ Project Structure
+The project is divided into two main parts:
+
+1.  **Part 1: Data Extraction & Export**
+    *   Build a web application with custom forms for SRMA projects.
+    *   Human experts use these forms to extract data from studies.
+    *   Save the extracted data to a database.
+    *   Export the data to CSV/Excel formats compatible with downstream meta-analysis software (e.g., MetaXL, JASP, RevMan, JAMOVI).
+
+2.  **Part 2: Integrated Meta-Analysis**
+    *   Develop custom meta-analysis pipelines using R and/or Python.
+    *   Allow users to perform analysis directly within the platform.
+
 ### 🔧 Tech stack
 - **Python (Flask, Pandas, SQLAlchemy)** — web app, data handling, and API
 - **R (meta, metafor, rmarkdown/quarto)** — analysis and reporting
