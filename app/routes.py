@@ -1,9 +1,12 @@
-from flask import render_template, flash, redirect, url_for, request
+import io # Import io for BytesIO
+import zipfile # Import zipfile
+from flask import render_template, flash, redirect, url_for, request, send_file # Import send_file
 from app import app, db
 from app.forms import ProjectForm, StudyForm
 from app.models import Project, Study, CustomFormField, StudyDataValue, StudyNumericalOutcome # Import new models
 from app.utils import load_template_and_create_form_fields # Import the new utility function
 import json # Import json for handling dichotomous_outcome
+from pandas import DataFrame, ExcelWriter # Import pandas DataFrame and ExcelWriter
 
 @app.route('/')
 def index():
@@ -138,3 +141,55 @@ def enter_data(project_id, study_id):
         return redirect(url_for('project_detail', project_id=project.id))
 
     return render_template('enter_data.html', project=project, study=study, form_fields=form_fields, existing_data=existing_data, existing_numerical_outcomes=existing_numerical_outcomes)
+
+@app.route('/project/<int:project_id>/export_jamovi')
+def export_jamovi(project_id):
+    project = Project.query.get_or_404(project_id)
+    
+    # Get all studies for the project
+    studies = project.studies.all()
+    
+    # Create an in-memory buffer for the zip file
+    zip_buffer = io.BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zf:
+        # Define columns for Jamovi export
+        jamovi_columns = ['Study', 'Intervention_events', 'Intervention_total', 'Control_events', 'Control_Total']
+
+        # Dictionary to hold data for each outcome, keyed by outcome name
+        outcomes_data = {}
+
+        for study in studies:
+            numerical_outcomes = study.numerical_outcomes.all()
+            for num_outcome in numerical_outcomes:
+                outcome_name = num_outcome.outcome_name
+                
+                # Initialize list for outcome if not already present
+                if outcome_name not in outcomes_data:
+                    outcomes_data[outcome_name] = []
+                
+                # Append data for the current outcome
+                outcomes_data[outcome_name].append({
+                    'Study': study.title,
+                    'Intervention_events': num_outcome.events_intervention,
+                    'Intervention_total': num_outcome.total_intervention,
+                    'Control_events': num_outcome.events_control,
+                    'Control_Total': num_outcome.total_control
+                })
+        
+        # Create a separate CSV for each outcome
+        for outcome_name, data_rows in outcomes_data.items():
+            df = DataFrame(data_rows, columns=jamovi_columns)
+            output = io.StringIO()
+            df.to_csv(output, index=False)
+            output.seek(0)
+            
+            # Add the CSV to the zip file
+            # Sanitize outcome_name for filename
+            safe_outcome_name = "".join([c for c in outcome_name if c.isalnum() or c in (' ', '.', '_')]).rstrip()
+            filename = f"{project.name}_{safe_outcome_name}_Jamovi_Export.csv"
+            zf.writestr(filename, output.getvalue())
+
+    zip_buffer.seek(0)
+    
+    return send_file(zip_buffer, download_name=f'{project.name}_Jamovi_Exports.zip', as_attachment=True, mimetype='application/zip')

@@ -1,17 +1,23 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Add Project</h1>
-    <form method="POST" action="">
-        {{ form.hidden_tag() }}
-        <p>
-            {{ form.name.label }}<br>
-            {{ form.name(size=32) }}
-        </p>
-        <p>
-            {{ form.description.label }}<br>
-            {{ form.description(rows=4, cols=50) }}
-        </p>
-        <p>{{ form.submit() }}</p>
-    </form>
+    <div class="card mt-4">
+        <div class="card-header">
+            <h1>Add Project</h1>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="">
+                {{ form.hidden_tag() }}
+                <div class="mb-3">
+                    {{ form.name.label(class="form-label") }}
+                    {{ form.name(class="form-control") }}
+                </div>
+                <div class="mb-3">
+                    {{ form.description.label(class="form-label") }}
+                    {{ form.description(class="form-control", rows=4) }}
+                </div>
+                {{ form.submit(class="btn btn-primary") }}
+            </form>
+        </div>
+    </div>
 {% endblock %}

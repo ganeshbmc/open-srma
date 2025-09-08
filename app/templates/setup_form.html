@@ -1,18 +1,24 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Setup Data Extraction Form for {{ project.name }}</h1>
-    <p>Please select a template to generate your data extraction form. You can customize it later.</p>
-
-    <form method="POST">
-        <div class="form-group">
-            <label for="template_id">Choose a template:</label>
-            <select class="form-control" id="template_id" name="template_id">
-                <option value="rct_v1">Randomized Controlled Trial (RCT)</option>
-                <option value="non_rct_v1" disabled>Non-Randomized Study (Coming Soon)</option>
-                <option value="scratch" disabled>Start from scratch (Coming Soon)</option>
-            </select>
+    <div class="card mt-4">
+        <div class="card-header">
+            <h1>Setup Data Extraction Form for {{ project.name }}</h1>
         </div>
-        <button type="submit" class="btn btn-primary">Generate Form</button>
-    </form>
+        <div class="card-body">
+            <p>Please select a template to generate your data extraction form. You can customize it later.</p>
+
+            <form method="POST">
+                <div class="mb-3"> {# Added mb-3 for spacing #}
+                    <label for="template_id" class="form-label">Choose a template:</label> {# Added form-label class #}
+                    <select class="form-select" id="template_id" name="template_id"> {# Changed form-control to form-select for dropdowns #}
+                        <option value="rct_v1">Randomized Controlled Trial (RCT)</option>
+                        <option value="non_rct_v1" disabled>Non-Randomized Study (Coming Soon)</option>
+                        <option value="scratch" disabled>Start from scratch (Coming Soon)</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Generate Form</button>
+            </form>
+        </div>
+    </div>
 {% endblock %}

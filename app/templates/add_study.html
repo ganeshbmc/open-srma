@@ -1,22 +1,28 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Add Study to {{ project.name }}</h1>
-    <form method="POST" action="">
-        {{ form.hidden_tag() }}
-        <p>
-            {{ form.title.label }}<br>
-            {{ form.title(size=64) }}
-        </p>
-        <p>
-            {{ form.author.label }}<br>
-            {{ form.author(size=32) }}
-        </p>
-        <p>
-            {{ form.year.label }}<br>
-            {{ form.year(size=4) }}
-        </p>
-        <p>{{ form.submit() }}</p>
-    </form>
-    <a href="{{ url_for('project_detail', project_id=project.id) }}">Back to Project</a>
+    <div class="card mt-4">
+        <div class="card-header">
+            <h1>Add Study to {{ project.name }}</h1>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="">
+                {{ form.hidden_tag() }}
+                <div class="mb-3">
+                    {{ form.title.label(class="form-label") }}
+                    {{ form.title(class="form-control") }}
+                </div>
+                <div class="mb-3">
+                    {{ form.author.label(class="form-label") }}
+                    {{ form.author(class="form-control") }}
+                </div>
+                <div class="mb-3">
+                    {{ form.year.label(class="form-label") }}
+                    {{ form.year(class="form-control") }}
+                </div>
+                {{ form.submit(class="btn btn-primary") }}
+            </form>
+            <a href="{{ url_for('project_detail', project_id=project.id) }}" class="btn btn-secondary mt-3">Back to Project</a>
+        </div>
+    </div>
 {% endblock %}

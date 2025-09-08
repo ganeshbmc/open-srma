@@ -16,5 +16,7 @@
 
     <a href="{{ url_for('add_study', project_id=project.id) }}">Add Study</a>
     <br>
+    <a href="{{ url_for('export_jamovi', project_id=project.id) }}" class="btn btn-success mt-3">Export outcomes data (zip)</a>
+    <br>
     <a href="{{ url_for('index') }}">Back to Projects</a>
 {% endblock %}
