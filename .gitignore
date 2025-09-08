@@ -1,1 +1,8 @@
-to_be_ignored.txt
+# Ignore Python virtual environments
+venv/
+.venv/
+
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*.pyo
