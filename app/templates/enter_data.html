@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Enter Data for Study: {{ study.title }} (Project: {{ project.name }})</h1>
+
+    <form method="POST">
+        {% set current_section = "" %}
+        {% for field in form_fields %}
+            {% if field.section != current_section %}
+                {% if current_section != "" %}
+                    </div> {# Close previous section-body #}
+                {% endif %}
+                <div class="card mt-4">
+                    <div class="card-header"><h4>{{ field.section }}</h4></div>
+                    <div class="card-body">
+                {% set current_section = field.section %}
+            {% endif %}
+
+            <div class="mb-3">
+                <label for="field_{{ field.id }}" class="form-label">{{ field.label }}:</label>
+                {% if field.field_type == 'text' %}
+                    <input type="text" class="form-control" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ existing_data[field.id] if field.id in existing_data else '' }}">
+                {% elif field.field_type == 'textarea' %}
+                    <textarea class="form-control" id="field_{{ field.id }}" name="field_{{ field.id }}" rows="3">{{ existing_data[field.id] if field.id in existing_data else '' }}</textarea>
+                {% elif field.field_type == 'integer' %}
+                    <input type="number" class="form-control" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ existing_data[field.id] if field.id in existing_data else '' }}">
+                {% elif field.field_type == 'date' %}
+                    <input type="date" class="form-control" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ existing_data[field.id] if field.id in existing_data else '' }}">
+                {% elif field.field_type == 'dichotomous_outcome' %}
+                    {# This field type is now deprecated for numerical outcomes, but kept for compatibility #}
+                    {% set value_data = existing_data[field.id] | from_json if field.id in existing_data and existing_data[field.id] else {'events': '', 'total': ''} %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="field_{{ field.id }}_events">Events:</label>
+                            <input type="number" class="form-control" id="field_{{ field.id }}_events" name="field_{{ field.id }}_events" value="{{ value_data.events }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="field_{{ field.id }}_total">Total:</label>
+                            <input type="number" class="form-control" id="field_{{ field.id }}_total" name="field_{{ field.id }}_total" value="{{ value_data.total }}">
+                        </div>
+                    </div>
+                {% else %}
+                    <p>Unsupported field type: {{ field.field_type }}</p>
+                {% endif %}
+            </div>
+        {% endfor %}
+        {% if form_fields %}
+            </div> {# Close last section-body #}
+            </div> {# Close last card #}
+        {% endif %}
+
+        {# Numerical Outcomes Section #}
+        <div class="card mt-4">
+            <div class="card-header"><h4>Numerical Outcomes Data</h4></div>
+            <div class="card-body">
+                <div id="numerical-outcomes-container">
+                    {# Existing outcomes will be populated here by JS #}
+                </div>
+                <button type="button" class="btn btn-secondary mt-2" id="add-numerical-outcome-btn">Add Numerical Outcome</button>
+            </div>
+        </div>
+        
+        <hr class="my-4">
+        <div class="d-grid">
+            <button type="submit" class="btn btn-primary btn-lg">Save All Data</button>
+        </div>
+    </form>
+
+    <script>
+        let numericalOutcomeCount = 0;
+        const existingNumericalOutcomes = {{ existing_numerical_outcomes | tojson }}; // Passed from Flask
+
+        function addNumericalOutcome(outcomeData = null) {
+            numericalOutcomeCount++;
+            const container = document.getElementById('numerical-outcomes-container');
+            const outcomeDiv = document.createElement('div');
+            outcomeDiv.classList.add('outcome-entry', 'p-3', 'mb-3', 'border', 'rounded');
+            outcomeDiv.setAttribute('id', `numerical-outcome-row-${numericalOutcomeCount}`);
+            
+            const outcomeName = outcomeData ? outcomeData.outcome_name : '';
+            const eventsIntervention = outcomeData ? outcomeData.events_intervention : '';
+            const totalIntervention = outcomeData ? outcomeData.total_intervention : '';
+            const eventsControl = outcomeData ? outcomeData.events_control : '';
+            const totalControl = outcomeData ? outcomeData.total_control : '';
+
+            outcomeDiv.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5>Numerical Outcome #${numericalOutcomeCount}</h5>
+                    <button type="button" class="btn-close" aria-label="Close" onclick="removeNumericalOutcome(${numericalOutcomeCount})"></button>
+                </div>
+                <input type="hidden" name="outcome_row_index" value="${numericalOutcomeCount}"> <!-- Hidden input for index -->
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label for="outcome_name_${numericalOutcomeCount}" class="form-label">Outcome Name</label>
+                        <input type="text" class="form-control" id="outcome_name_${numericalOutcomeCount}" name="outcome_name_${numericalOutcomeCount}" value="${outcomeName}">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label for="events_intervention_${numericalOutcomeCount}" class="form-label">Events (Intervention)</label>
+                        <input type="number" class="form-control" id="events_intervention_${numericalOutcomeCount}" name="events_intervention_${numericalOutcomeCount}" value="${eventsIntervention}">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="total_intervention_${numericalOutcomeCount}" class="form-label">Total (Intervention)</label>
+                        <input type="number" class="form-control" id="total_intervention_${numericalOutcomeCount}" name="total_intervention_${numericalOutcomeCount}" value="${totalIntervention}">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="events_control_${numericalOutcomeCount}" class="form-label">Events (Control)</label>
+                        <input type="number" class="form-control" id="events_control_${numericalOutcomeCount}" name="events_control_${numericalOutcomeCount}" value="${eventsControl}">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="total_control_${numericalOutcomeCount}" class="form-label">Total (Control)</label>
+                        <input type="number" class="form-control" id="total_control_${numericalOutcomeCount}" name="total_control_${numericalOutcomeCount}" value="${totalControl}">
+                    </div>
+                </div>
+            `;
+            container.appendChild(outcomeDiv);
+        }
+
+        function removeNumericalOutcome(id) {
+            const outcomeToRemove = document.getElementById(`numerical-outcome-row-${id}`);
+            if (outcomeToRemove) {
+                outcomeToRemove.remove();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Use event delegation for the add button
+            document.addEventListener('click', function(event) {
+                if (event.target && event.target.id === 'add-numerical-outcome-btn') {
+                    addNumericalOutcome();
+                }
+            });
+
+            // Pre-populate existing numerical outcomes
+            if (existingNumericalOutcomes && existingNumericalOutcomes.length > 0) {
+                existingNumericalOutcomes.forEach(outcome => addNumericalOutcome(outcome));
+            } else {
+                // Add one empty outcome section by default if none exist
+                addNumericalOutcome();
+            }
+        });
+    </script>
+{% endblock %}

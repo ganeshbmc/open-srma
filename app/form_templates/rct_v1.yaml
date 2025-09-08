@@ -13,16 +13,38 @@ sections:
         field_type: "textarea"
       - label: "Publication type"
         field_type: "text"
+      - label: "Country"
+        field_type: "text"
+      - label: "Author Email"
+        field_type: "text"
+      - label: "Assessor ID"
+        field_type: "text"
+      - label: "Assessed Date"
+        field_type: "date"
 
   - section_name: "Study Characteristics"
     fields:
-      - label: "Aim of study"
-        field_type: "text"
       - label: "Study design"
         field_type: "text"
       - label: "Unit of allocation"
         field_type: "text"
       - label: "Ethical approval obtained"
+        field_type: "text"
+      - label: "Randomization type"
+        field_type: "text"
+      - label: "Start Date"
+        field_type: "date"
+      - label: "End Date"
+        field_type: "date"
+      - label: "Patient Blinding"
+        field_type: "text"
+      - label: "Physician Blinding"
+        field_type: "text"
+      - label: "Investigator Blinding"
+        field_type: "text"
+      - label: "Outcome Assessor Blinding"
+        field_type: "text"
+      - label: "Data Analyst Blinding"
         field_type: "text"
 
   - section_name: "Participants"
@@ -43,37 +65,45 @@ sections:
         field_type: "text"
       - label: "Sex"
         field_type: "text"
-      - label: "Baseline imbalances"
-        field_type: "textarea"
       - label: "Withdrawals and exclusions"
         field_type: "textarea"
 
-  - section_name: "Intervention Details"
+  - section_name: "Intervention and Control Details"
     fields:
-      - label: "Intervention group name"
-        field_type: "text"
-      - label: "Intervention group description"
+      - label: "Intervention Description"
         field_type: "textarea"
       - label: "Number in intervention group"
         field_type: "integer"
-
-  - section_name: "Control/Comparator Details"
-    fields:
-      - label: "Control group name"
-        field_type: "text"
-      - label: "Control group description"
+      - label: "Control Description"
         field_type: "textarea"
       - label: "Number in control group"
         field_type: "integer"
 
-  - section_name: "Outcomes"
-    fields: []
-
-  - section_name: "Other Information"
+  - section_name: "Outcomes (Description)"
     fields:
-      - label: "Study funding sources"
+      - label: "Primary Outcome(s)"
         field_type: "textarea"
-      - label: "Conflicts of interest"
+      - label: "Secondary Outcome(s)"
         field_type: "textarea"
-      - label: "Key conclusions of study authors"
+
+  - section_name: "Study Size & Analysis"
+    fields:
+      - label: "Sample Size Estimation"
+        field_type: "text"
+      - label: "Analysis Type (e.g., ITT)"
+        field_type: "text"
+      - label: "No. missing"
+        field_type: "integer"
+
+  - section_name: "Patient Baseline Characteristics"
+    fields: [] # Empty by default, customizable
+
+  - section_name: "Procedural Details"
+    fields: [] # Empty by default, customizable
+
+  - section_name: "Funding & Conflicts of Interest"
+    fields:
+      - label: "Funder"
+        field_type: "textarea"
+      - label: "Conflict of Interest"
         field_type: "textarea"

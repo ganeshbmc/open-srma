@@ -7,7 +7,10 @@
     <h2>Studies</h2>
     <ul>
         {% for study in studies %}
-        <li>{{ study.title }} ({{ study.author }}, {{ study.year }})</li>
+        <li>
+            {{ study.title }} ({{ study.author }}, {{ study.year }})
+            <a href="{{ url_for('enter_data', project_id=project.id, study_id=study.id) }}" class="btn btn-sm btn-primary">Enter Data</a>
+        </li>
         {% endfor %}
     </ul>
 

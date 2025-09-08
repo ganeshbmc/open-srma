@@ -37,3 +37,17 @@ class StudyDataValue(db.Model):
 
     def __repr__(self):
         return f'<StudyDataValue {self.value}>'
+
+class StudyNumericalOutcome(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    study_id = db.Column(db.Integer, db.ForeignKey('study.id'), nullable=False)
+    outcome_name = db.Column(db.String(200), nullable=False)
+    events_intervention = db.Column(db.Integer, nullable=True)
+    total_intervention = db.Column(db.Integer, nullable=True)
+    events_control = db.Column(db.Integer, nullable=True)
+    total_control = db.Column(db.Integer, nullable=True)
+
+    study = db.relationship('Study', backref=db.backref('numerical_outcomes', lazy='dynamic', cascade="all, delete-orphan"))
+
+    def __repr__(self):
+        return f'<StudyNumericalOutcome {self.outcome_name} for Study {self.study_id}>'
