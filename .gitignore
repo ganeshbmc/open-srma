@@ -6,3 +6,7 @@ venv/
 __pycache__/
 *.py[cod]
 *.pyo
+
+# Flask instance folder and local DB files
+instance/
+*.db

@@ -20,6 +20,8 @@ class CustomFormField(db.Model):
     label = db.Column(db.String(200), nullable=False)
     field_type = db.Column(db.String(50), nullable=False)
     required = db.Column(db.Boolean, default=False, nullable=False)
+    sort_order = db.Column(db.Integer, nullable=True)
+    help_text = db.Column(db.Text, nullable=True)
 
     project = db.relationship('Project', backref=db.backref('form_fields', lazy='dynamic', cascade="all, delete-orphan"))
 

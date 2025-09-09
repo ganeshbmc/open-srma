@@ -9,6 +9,7 @@
             <p>Please select a template to generate your data extraction form. You can customize it later.</p>
 
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-3"> {# Added mb-3 for spacing #}
                     <label for="template_id" class="form-label">Choose a template:</label> {# Added form-label class #}
                     <select class="form-select" id="template_id" name="template_id"> {# Changed form-control to form-select for dropdowns #}

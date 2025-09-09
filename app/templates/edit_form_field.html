@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>{{ 'Add Field' if mode == 'add' else 'Edit Field' }} — {{ project.name }}</h1>
+
+  <form method="POST">
+    {{ form.hidden_tag() }}
+    <div class="mb-3">
+      {{ form.section.label(class="form-label") }}
+      {{ form.section(class="form-control") }}
+    </div>
+    <div class="mb-3">
+      {{ form.label.label(class="form-label") }}
+      {{ form.label(class="form-control") }}
+    </div>
+    <div class="mb-3">
+      {{ form.help_text.label(class="form-label") }}
+      {{ form.help_text(class="form-control", rows=2) }}
+      {% if form.help_text.description %}
+        <div class="form-text">{{ form.help_text.description }}</div>
+      {% endif %}
+    </div>
+    <div class="mb-3">
+      {{ form.field_type.label(class="form-label") }}
+      {{ form.field_type(class="form-select") }}
+    </div>
+    <div class="form-check mb-3">
+      {{ form.required(class="form-check-input", id="requiredCheck") }}
+      <label class="form-check-label" for="requiredCheck">Required</label>
+    </div>
+    {{ form.submit(class="btn btn-primary") }}
+    <a class="btn btn-secondary" href="{{ url_for('list_form_fields', project_id=project.id) }}">Cancel</a>
+  </form>
+{% endblock %}

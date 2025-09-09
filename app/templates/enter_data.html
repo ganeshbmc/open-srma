@@ -1,78 +1,240 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Enter Data for Study: {{ study.title }} (Project: {{ project.name }})</h1>
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h1 class="mb-0">Enter Data</h1>
+      <div class="text-muted">Study: {{ study.title }} · Project: {{ project.name }}</div>
+    </div>
 
-    <form method="POST">
-        {% set current_section = "" %}
-        {% for field in form_fields %}
-            {% if field.section != current_section %}
-                {% if current_section != "" %}
-                    </div> {# Close previous section-body #}
-                {% endif %}
-                <div>
-                    <h4>{{ field.section }}</h4>
-                {% set current_section = field.section %}
-            {% endif %}
-
-            <div>
-                <label for="field_{{ field.id }}">{{ field.label }}:</label>
-                {% if field.field_type == 'text' %}
-                    <input type="text" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ existing_data[field.id] if field.id in existing_data else '' }}">
-                {% elif field.field_type == 'textarea' %}
-                    <textarea id="field_{{ field.id }}" name="field_{{ field.id }}" rows="3">{{ existing_data[field.id] if field.id in existing_data else '' }}</textarea>
-                {% elif field.field_type == 'integer' %}
-                    <input type="number" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ existing_data[field.id] if field.id in existing_data else '' }}">
-                {% elif field.field_type == 'date' %}
-                    <input type="date" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ existing_data[field.id] if field.id in existing_data else '' }}">
-                {% elif field.field_type == 'dichotomous_outcome' %}
-                    {# This field type is now deprecated for numerical outcomes, but kept for compatibility #}
-                    {% set value_data = existing_data[field.id] | from_json if field.id in existing_data and existing_data[field.id] else {'events': '', 'total': ''} %}
-                    <div>
-                        <div>
-                            <label for="field_{{ field.id }}_events">Events:</label>
-                            <input type="number" id="field_{{ field.id }}_events" name="field_{{ field.id }}_events" value="{{ value_data.events }}">
-                        </div>
-                        <div>
-                            <label for="field_{{ field.id }}_total">Total:</label>
-                            <input type="number" id="field_{{ field.id }}_total" name="field_{{ field.id }}_total" value="{{ value_data.total }}">
-                        </div>
+    <form method="POST" id="enter-data-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {# Group fields by section to render header once per section #}
+        {% for group in form_fields|groupby('section') %}
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    {% set sec_id = 'sec_' ~ loop.index %}
+                    <button class="btn btn-link text-decoration-none p-0" type="button" data-bs-toggle="collapse" data-bs-target="#{{ sec_id }}" aria-expanded="true" aria-controls="{{ sec_id }}">
+                        <h4 class="mb-0 h5">{{ group.grouper }}</h4>
+                    </button>
+                    <div class="d-flex align-items-center gap-2">
+                      <span id="status-{{ sec_id }}" class="small text-muted"></span>
+                      <button type="button" class="btn btn-sm btn-outline-secondary save-section-btn" data-section-id="{{ sec_id }}" data-section-name="{{ group.grouper }}">Save Section</button>
                     </div>
-                {% else %}
-                    <p>Unsupported field type: {{ field.field_type }}</p>
-                {% endif %}
+                </div>
+                <div id="{{ sec_id }}" class="collapse show">
+                <div class="card-body">
+                    {% for field in group.list %}
+                        <div class="mb-3">
+                            <label class="form-label" for="field_{{ field.id }}">
+                                {{ field.label }}
+                                {% if field.help_text %}
+                                  <span class="ms-1" data-bs-toggle="tooltip" data-bs-title="{{ field.help_text }}">🛈</span>
+                                {% endif %}
+                            </label>
+                            {% if field.field_type == 'text' %}
+                                <input class="form-control" type="text" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ existing_data[field.id] if field.id in existing_data else '' }}">
+                            {% elif field.field_type == 'textarea' %}
+                                <textarea class="form-control" id="field_{{ field.id }}" name="field_{{ field.id }}" rows="3">{{ existing_data[field.id] if field.id in existing_data else '' }}</textarea>
+                            {% elif field.field_type == 'integer' %}
+                                <input class="form-control" type="number" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ existing_data[field.id] if field.id in existing_data else '' }}">
+                            {% elif field.field_type == 'date' %}
+                                <input class="form-control" type="date" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ existing_data[field.id] if field.id in existing_data else '' }}">
+                            {% elif field.field_type == 'dichotomous_outcome' %}
+                                {# This field type is now deprecated for numerical outcomes, but kept for compatibility #}
+                                {% set value_data = existing_data[field.id] | from_json if field.id in existing_data and existing_data[field.id] else {'events': '', 'total': ''} %}
+                                <div class="row g-3">
+                                    <div class="col-6 col-md-3">
+                                        <label class="form-label" for="field_{{ field.id }}_events">Events</label>
+                                        <input class="form-control" type="number" id="field_{{ field.id }}_events" name="field_{{ field.id }}_events" value="{{ value_data.events }}">
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <label class="form-label" for="field_{{ field.id }}_total">Total</label>
+                                        <input class="form-control" type="number" id="field_{{ field.id }}_total" name="field_{{ field.id }}_total" value="{{ value_data.total }}">
+                                    </div>
+                                </div>
+                            {% else %}
+                                <p class="text-danger mb-0">Unsupported field type: {{ field.field_type }}</p>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                </div>
             </div>
         {% endfor %}
-        {% if form_fields %}
-            </div> {# Close last section-body #}
-            </div> {# Close last card #}
-        {% endif %}
 
         {# Numerical Outcomes Section #}
-        <div>
-            <h4>Numerical Outcomes Data</h4>
-            <div>
-                <div id="numerical-outcomes-container">
-                    {# Existing outcomes will be populated here by JS #}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0 h5">Numerical Outcomes Data</h4>
+                <div class="d-flex align-items-center gap-2">
+                  <span id="status-numerical_outcomes" class="small text-muted"></span>
+                  <button type="button" id="add-numerical-outcome-btn" class="btn btn-sm btn-outline-primary">Add Row</button>
                 </div>
-                <button type="button" id="add-numerical-outcome-btn">Add Numerical Outcome</button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th>Outcome Name</th>
+                        <th>Intervention Events</th>
+                        <th>Intervention Total</th>
+                        <th>Control Events</th>
+                        <th>Control Total</th>
+                        <th style="width:100px;">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="numerical-outcomes-tbody"></tbody>
+                  </table>
+                </div>
             </div>
         </div>
         
-        <button type="submit">Save All Data</button>
     </form>
 
+    <div style="height: 64px"></div>
+
+    <div class="fixed-bottom bg-body border-top">
+      <div class="container py-2 d-flex justify-content-between align-items-center gap-2">
+        <span id="global-last-saved" class="small text-muted">Not saved yet</span>
+        <div class="d-flex gap-2">
+          <a href="{{ url_for('project_detail', project_id=project.id) }}" class="btn btn-secondary">Back to Project</a>
+          <button type="submit" form="enter-data-form" class="btn btn-primary">Save All Data</button>
+        </div>
+      </div>
+    </div>
+
     <script>
+        // Enable Bootstrap tooltips
+        document.addEventListener('DOMContentLoaded', function () {
+          const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+          tooltipTriggerList.forEach(function (tooltipTriggerEl) {
+            new bootstrap.Tooltip(tooltipTriggerEl)
+          })
+        });
+
         let numericalOutcomeCount = 0;
         const existingNumericalOutcomes = {{ existing_numerical_outcomes | tojson }}; // Passed from Flask
 
+        // --- Autosave helpers ---
+        const autosaveTimers = {};
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content') || (document.querySelector('input[name="csrf_token"]').value || '');
+
+        function formatNowTime() {
+            const d = new Date();
+            try {
+                return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            } catch (_) {
+                return d.toTimeString().split(' ')[0];
+            }
+        }
+
+        function updateGlobalSavedTime() {
+            const el = document.getElementById('global-last-saved');
+            if (el) {
+                el.textContent = `Last saved at ${formatNowTime()}`;
+                el.className = 'small text-success';
+            }
+        }
+
+        function setStatus(sectionId, text, cls = 'text-muted') {
+            const el = document.getElementById(`status-${sectionId}`) || document.getElementById(sectionId);
+            const statusEl = document.getElementById(`status-${sectionId}`);
+            if (statusEl) {
+                statusEl.className = `small ${cls}`;
+                statusEl.textContent = text;
+            }
+        }
+
+        function scheduleAutosave(sectionId, sectionName, delay = 1000) {
+            if (autosaveTimers[sectionId]) clearTimeout(autosaveTimers[sectionId]);
+            setStatus(sectionId, 'Saving...', 'text-secondary');
+            autosaveTimers[sectionId] = setTimeout(() => {
+                autosaveSection(sectionId, sectionName);
+            }, delay);
+        }
+
+        function gatherSectionPayload(sectionId, sectionName) {
+            const container = document.getElementById(sectionId);
+            const inputs = container ? container.querySelectorAll('input, textarea') : [];
+            const map = new Map();
+            const fieldIdFrom = (name) => {
+                const m = name && name.match(/^field_(\d+)(?:_(events|total))?$/);
+                return m ? { id: parseInt(m[1], 10), part: m[2] || null } : null;
+            };
+            inputs.forEach((inp) => {
+                const meta = fieldIdFrom(inp.name);
+                if (!meta) return;
+                const key = meta.id;
+                const cur = map.get(key) || { id: key };
+                if (meta.part === 'events') {
+                    cur.events = inp.value;
+                } else if (meta.part === 'total') {
+                    cur.total = inp.value;
+                } else {
+                    cur.value = inp.value;
+                }
+                map.set(key, cur);
+            });
+            return {
+                section: sectionName,
+                fields: Array.from(map.values()),
+            };
+        }
+
+        function gatherNumericalOutcomesPayload() {
+            const rows = document.querySelectorAll('#numerical-outcomes-tbody tr');
+            const data = [];
+            rows.forEach((tr) => {
+                const index = tr.id.split('-').pop();
+                const getVal = (id) => {
+                    const el = tr.querySelector(`#${id}_${index}`);
+                    return el ? el.value : '';
+                };
+                data.push({
+                    outcome_name: getVal('outcome_name'),
+                    events_intervention: getVal('events_intervention'),
+                    total_intervention: getVal('total_intervention'),
+                    events_control: getVal('events_control'),
+                    total_control: getVal('total_control'),
+                });
+            });
+            return { section: 'numerical_outcomes', numerical_outcomes: data };
+        }
+
+        async function autosaveSection(sectionId, sectionName) {
+            try {
+                let payload;
+                if (sectionId === 'numerical_outcomes') {
+                    payload = gatherNumericalOutcomesPayload();
+                } else {
+                    payload = gatherSectionPayload(sectionId, sectionName);
+                }
+                const resp = await fetch(`{{ url_for('autosave_study_data', project_id=project.id, study_id=study.id) }}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify(payload),
+                });
+                const json = await resp.json();
+                if (json && json.ok) {
+                    setStatus(sectionId, `Saved at ${formatNowTime()}`, 'text-success');
+                    updateGlobalSavedTime();
+                } else {
+                    setStatus(sectionId, `Error at ${formatNowTime()}`, 'text-danger');
+                }
+            } catch (e) {
+                setStatus(sectionId, `Error at ${formatNowTime()}`, 'text-danger');
+            }
+        }
+
         function addNumericalOutcome(outcomeData = null) {
             numericalOutcomeCount++;
-            const container = document.getElementById('numerical-outcomes-container');
-            const outcomeDiv = document.createElement('div');
-            // Removed 'p-3', 'border', 'rounded' to reduce "box inside box" effect
-            outcomeDiv.classList.add('outcome-entry'); 
-            outcomeDiv.setAttribute('id', `numerical-outcome-row-${numericalOutcomeCount}`);
+            const tbody = document.getElementById('numerical-outcomes-tbody');
+            const tr = document.createElement('tr');
+            tr.setAttribute('id', `numerical-outcome-row-${numericalOutcomeCount}`);
             
             const outcomeName = outcomeData ? outcomeData.outcome_name : '';
             const eventsIntervention = outcomeData ? outcomeData.events_intervention : '';
@@ -80,38 +242,28 @@
             const eventsControl = outcomeData ? outcomeData.events_control : '';
             const totalControl = outcomeData ? outcomeData.total_control : '';
 
-            outcomeDiv.innerHTML = `
-                <div>
-                    <h5>Numerical Outcome #${numericalOutcomeCount}</h5>
-                    <button type="button" aria-label="Close" onclick="removeNumericalOutcome(${numericalOutcomeCount})">X</button>
-                </div>
-                <input type="hidden" name="outcome_row_index" value="${numericalOutcomeCount}"> <!-- Hidden input for index -->
-                <div>
-                    <div>
-                        <label for="outcome_name_${numericalOutcomeCount}">Outcome Name</label>
-                        <input type="text" id="outcome_name_${numericalOutcomeCount}" name="outcome_name_${numericalOutcomeCount}" value="${outcomeName}">
-                    </div>
-                </div>
-                <div>
-                    <div>
-                        <label for="events_intervention_${numericalOutcomeCount}">Events (Intervention)</label>
-                        <input type="number" id="events_intervention_${numericalOutcomeCount}" name="events_intervention_${numericalOutcomeCount}" value="${eventsIntervention}">
-                    </div>
-                    <div>
-                        <label for="total_intervention_${numericalOutcomeCount}">Total (Intervention)</label>
-                        <input type="number" id="total_intervention_${numericalOutcomeCount}" name="total_intervention_${numericalOutcomeCount}" value="${totalIntervention}">
-                    </div>
-                    <div>
-                        <label for="events_control_${numericalOutcomeCount}">Events (Control)</label>
-                        <input type="number" id="events_control_${numericalOutcomeCount}" name="events_control_${numericalOutcomeCount}" value="${eventsControl}">
-                    </div>
-                    <div>
-                        <label for="total_control_${numericalOutcomeCount}">Total (Control)</label>
-                        <input type="number" id="total_control_${numericalOutcomeCount}" name="total_control_${numericalOutcomeCount}" value="${totalControl}">
-                    </div>
-                </div>
+            tr.innerHTML = `
+              <td>
+                <input type="hidden" name="outcome_row_index" value="${numericalOutcomeCount}">
+                <input class="form-control form-control-sm" type="text" id="outcome_name_${numericalOutcomeCount}" name="outcome_name_${numericalOutcomeCount}" value="${outcomeName}">
+              </td>
+              <td>
+                <input class="form-control form-control-sm" type="number" id="events_intervention_${numericalOutcomeCount}" name="events_intervention_${numericalOutcomeCount}" value="${eventsIntervention}">
+              </td>
+              <td>
+                <input class="form-control form-control-sm" type="number" id="total_intervention_${numericalOutcomeCount}" name="total_intervention_${numericalOutcomeCount}" value="${totalIntervention}">
+              </td>
+              <td>
+                <input class="form-control form-control-sm" type="number" id="events_control_${numericalOutcomeCount}" name="events_control_${numericalOutcomeCount}" value="${eventsControl}">
+              </td>
+              <td>
+                <input class="form-control form-control-sm" type="number" id="total_control_${numericalOutcomeCount}" name="total_control_${numericalOutcomeCount}" value="${totalControl}">
+              </td>
+              <td>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeNumericalOutcome(${numericalOutcomeCount})">Remove</button>
+              </td>
             `;
-            container.appendChild(outcomeDiv);
+            tbody.appendChild(tr);
         }
 
         function removeNumericalOutcome(id) {
@@ -119,6 +271,8 @@
             if (outcomeToRemove) {
                 outcomeToRemove.remove();
             }
+            // schedule autosave after removal
+            scheduleAutosave('numerical_outcomes', 'numerical_outcomes');
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -126,8 +280,39 @@
             document.addEventListener('click', function(event) {
                 if (event.target && event.target.id === 'add-numerical-outcome-btn') {
                     addNumericalOutcome();
+                    // schedule autosave for numerical outcomes after adding a row
+                    scheduleAutosave('numerical_outcomes', 'numerical_outcomes');
+                }
+                if (event.target && event.target.classList.contains('save-section-btn')) {
+                    const sectionId = event.target.getAttribute('data-section-id');
+                    const sectionName = event.target.getAttribute('data-section-name');
+                    autosaveSection(sectionId, sectionName);
                 }
             });
+
+            // Debounced autosave on input changes per section
+            document.querySelectorAll('[id^="sec_"].collapse').forEach(function(sectionEl) {
+                const sectionId = sectionEl.id;
+                const sectionHeader = sectionEl.previousElementSibling;
+                const sectionName = sectionHeader ? sectionHeader.querySelector('h4')?.textContent?.trim() : '';
+                sectionEl.addEventListener('input', function() {
+                    scheduleAutosave(sectionId, sectionName || sectionId);
+                });
+                sectionEl.addEventListener('change', function() {
+                    scheduleAutosave(sectionId, sectionName || sectionId);
+                });
+            });
+
+            // Autosave for numerical outcomes on any input change
+            const tbody = document.getElementById('numerical-outcomes-tbody');
+            if (tbody) {
+                tbody.addEventListener('input', function() {
+                    scheduleAutosave('numerical_outcomes', 'numerical_outcomes');
+                });
+                tbody.addEventListener('change', function() {
+                    scheduleAutosave('numerical_outcomes', 'numerical_outcomes');
+                });
+            }
 
             // Pre-populate existing numerical outcomes
             if (existingNumericalOutcomes && existingNumericalOutcomes.length > 0) {
