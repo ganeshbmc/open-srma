@@ -5,6 +5,8 @@ It supports the SRMA workflow — from **data extraction** to **narrative synthe
 
 See the high-level overview: [Project Summary](project_summary.md).
 
+For upcoming roadmap tasks, see: [Next Steps](next_steps.md).
+
 ### ✨ Features
 - 📑 Structured web-based forms for data extraction (multi-user, double entry & reconciliation)
 - 📝 Narrative synthesis support (study characteristics, risk of bias, qualitative summaries)
