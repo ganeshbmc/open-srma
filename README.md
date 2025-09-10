@@ -13,6 +13,7 @@ For upcoming roadmap tasks, see: [Next Steps](next_steps.md).
 - 📊 Built-in integration with R (`meta`, `metafor`) for forest plots, funnel plots, and advanced analyses
 - 🔄 Flexible outputs:
   - Standardized CSV/JSON exports
+  - Project-wide static field export to CSV/Excel
   - Compatible with RevMan, JASP, MetaXL, CMA
   - Seamless use in custom R or Python pipelines
 - 📈 One-click HTML/PDF reports with forest/funnel plots and model summaries

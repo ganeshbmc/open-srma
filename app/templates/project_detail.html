@@ -10,6 +10,8 @@
       </div>
       <div class="text-end">
         <a href="{{ url_for('list_form_fields', project_id=project.id) }}" class="btn btn-outline-secondary">Customize Form</a>
+        <a href="{{ url_for('export_static', project_id=project.id, format='csv') }}" class="btn btn-outline-success">Export Static Fields (CSV)</a>
+        <a href="{{ url_for('export_static', project_id=project.id, format='xlsx') }}" class="btn btn-outline-success">Export Static Fields (Excel)</a>
         <a href="{{ url_for('export_jamovi', project_id=project.id) }}" class="btn btn-success">Export Outcomes (zip)</a>
       </div>
     </div>

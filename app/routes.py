@@ -7,6 +7,7 @@ from app.models import Project, Study, CustomFormField, StudyDataValue, StudyNum
 from app.utils import load_template_and_create_form_fields # Import the new utility function
 import json # Import json for handling dichotomous_outcome
 from pandas import DataFrame # Import pandas DataFrame
+import pandas as pd  # For Excel writer and general convenience
 
 @app.route('/')
 def index():
@@ -388,51 +389,201 @@ def autosave_study_data(project_id, study_id):
 @app.route('/project/<int:project_id>/export_jamovi')
 def export_jamovi(project_id):
     project = Project.query.get_or_404(project_id)
-    
-    # Get all studies for the project
-    studies = project.studies.all()
-    
+
+    # Get all studies for the project in a stable order
+    studies = project.studies.order_by(Study.id.asc()).all()
+
     # Create an in-memory buffer for the zip file
     zip_buffer = io.BytesIO()
-    
+
+    def safe(name: str) -> str:
+        return "".join([c for c in (name or '') if c.isalnum() or c in (' ', '.', '_', '-')]).strip() or 'outcome'
+
     with zipfile.ZipFile(zip_buffer, mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
         # Define columns for Jamovi export
         jamovi_columns = ['Study', 'Intervention_events', 'Intervention_total', 'Control_events', 'Control_Total']
 
-        # Dictionary to hold data for each outcome, keyed by outcome name
+        # Try primary source: StudyNumericalOutcome rows
         outcomes_data = {}
-
         for study in studies:
-            numerical_outcomes = study.numerical_outcomes.all()
-            for num_outcome in numerical_outcomes:
-                outcome_name = num_outcome.outcome_name
-                
-                # Initialize list for outcome if not already present
-                if outcome_name not in outcomes_data:
-                    outcomes_data[outcome_name] = []
-                
-                # Append data for the current outcome
-                outcomes_data[outcome_name].append({
+            for num_outcome in study.numerical_outcomes.all():
+                name = (num_outcome.outcome_name or '').strip()
+                if not name:
+                    # Skip unnamed outcomes
+                    continue
+                outcomes_data.setdefault(name, []).append({
                     'Study': study.title,
                     'Intervention_events': num_outcome.events_intervention,
                     'Intervention_total': num_outcome.total_intervention,
                     'Control_events': num_outcome.events_control,
-                    'Control_Total': num_outcome.total_control
+                    'Control_Total': num_outcome.total_control,
                 })
-        
-        # Create a separate CSV for each outcome
+
+        wrote_any = False
         for outcome_name, data_rows in outcomes_data.items():
+            if not data_rows:
+                continue
             df = DataFrame(data_rows, columns=jamovi_columns)
             output = io.StringIO()
             df.to_csv(output, index=False)
             output.seek(0)
-            
-            # Add the CSV to the zip file
-            # Sanitize outcome_name for filename
-            safe_outcome_name = "".join([c for c in outcome_name if c.isalnum() or c in (' ', '.', '_')]).rstrip()
-            filename = f"{project.name}_{safe_outcome_name}_Jamovi_Export.csv"
-            zf.writestr(filename, output.getvalue())
+            zf.writestr(f"{safe(project.name)}_{safe(outcome_name)}_Jamovi_Export.csv", output.getvalue())
+            wrote_any = True
+
+        # Fallback: build outcomes from legacy 'dichotomous_outcome' static fields
+        if not wrote_any:
+            legacy_fields = (
+                CustomFormField.query
+                .filter_by(project_id=project.id, field_type='dichotomous_outcome')
+                .order_by(
+                    CustomFormField.section.asc(),
+                    db.func.coalesce(CustomFormField.sort_order, CustomFormField.id).asc(),
+                    CustomFormField.id.asc(),
+                )
+                .all()
+            )
+
+            for f in legacy_fields:
+                rows = []
+                for study in studies:
+                    dv = StudyDataValue.query.filter_by(study_id=study.id, form_field_id=f.id).first()
+                    events_val = total_val = None
+                    if dv and dv.value:
+                        try:
+                            parsed = json.loads(dv.value)
+                            events_val = parsed.get('events')
+                            total_val = parsed.get('total')
+                        except Exception:
+                            pass
+                    # Only add row if at least one value present
+                    if events_val is not None or total_val is not None:
+                        rows.append({
+                            'Study': study.title,
+                            'Intervention_events': events_val,
+                            'Intervention_total': total_val,
+                            'Control_events': None,
+                            'Control_Total': None,
+                        })
+                if rows:
+                    df = DataFrame(rows, columns=jamovi_columns)
+                    output = io.StringIO()
+                    df.to_csv(output, index=False)
+                    output.seek(0)
+                    zf.writestr(f"{safe(project.name)}_{safe(f.label)}_Jamovi_Export.csv", output.getvalue())
+                    wrote_any = True
+
+        # If still nothing to write, include a README in the zip to avoid an empty archive
+        if not wrote_any:
+            zf.writestr(
+                "README.txt",
+                "No numerical outcomes found for this project.\n"
+                "- Enter outcomes in the 'Numerical Outcomes Data' section on the study page, or\n"
+                "- Use legacy dichotomous outcome fields and resubmit.\n",
+            )
 
     zip_buffer.seek(0)
-    
-    return send_file(zip_buffer, download_name=f'{project.name}_Jamovi_Exports.zip', as_attachment=True, mimetype='application/zip')
+    return send_file(
+        zip_buffer,
+        download_name=f"{safe(project.name)}_Jamovi_Exports.zip",
+        as_attachment=True,
+        mimetype='application/zip',
+    )
+
+
+@app.route('/project/<int:project_id>/export_static')
+def export_static(project_id):
+    """Export all static (non-tabular) custom form fields for all studies in a project.
+
+    Produces a flat table with columns:
+    - Study metadata: Study, Author, Year
+    - One column per CustomFormField (or two for dichotomous_outcome: events/total)
+
+    Query param: format=csv|xlsx (default csv)
+    """
+    project = Project.query.get_or_404(project_id)
+    out_format = (request.args.get('format') or 'csv').lower()
+
+    # Load fields in a stable, user-visible order
+    fields = (
+        CustomFormField.query
+        .filter_by(project_id=project.id)
+        .order_by(
+            CustomFormField.section.asc(),
+            db.func.coalesce(CustomFormField.sort_order, CustomFormField.id).asc(),
+            CustomFormField.id.asc(),
+        )
+        .all()
+    )
+
+    # Build ordered column list
+    def col_base(field):
+        return f"{field.section} - {field.label}".strip()
+
+    columns = ['Study', 'Author', 'Year']
+    expanded_fields = []  # (field, kind) where kind is 'single'|'events'|'total'
+    for f in fields:
+        if f.field_type == 'dichotomous_outcome':
+            columns.append(f"{col_base(f)} (events)")
+            columns.append(f"{col_base(f)} (total)")
+            expanded_fields.append((f, 'events'))
+            expanded_fields.append((f, 'total'))
+        else:
+            columns.append(col_base(f))
+            expanded_fields.append((f, 'single'))
+
+    # Gather rows across studies
+    rows = []
+    for study in project.studies.order_by(Study.id.asc()).all():
+        row = { 'Study': study.title, 'Author': study.author, 'Year': study.year }
+        # Map of form_field_id -> raw value string
+        data_map = { dv.form_field_id: dv.value for dv in study.data_values }
+        for f, kind in expanded_fields:
+            base = col_base(f)
+            if kind == 'single':
+                row[f"{base}"] = data_map.get(f.id)
+            else:
+                raw = data_map.get(f.id)
+                events_val, total_val = (None, None)
+                if raw:
+                    try:
+                        parsed = json.loads(raw)
+                        events_val = parsed.get('events')
+                        total_val = parsed.get('total')
+                    except Exception:
+                        # Keep as None on parse errors
+                        pass
+                if kind == 'events':
+                    row[f"{base} (events)"] = events_val
+                else:
+                    row[f"{base} (total)"] = total_val
+        rows.append(row)
+
+    df = DataFrame(rows, columns=columns)
+
+    # Safe filename components
+    def safe(name: str):
+        return "".join([c for c in name or '' if c.isalnum() or c in (' ', '.', '_', '-')]).strip() or 'project'
+
+    if out_format == 'xlsx':
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='StaticFields')
+        buf.seek(0)
+        return send_file(
+            buf,
+            download_name=f"{safe(project.name)}_Static_Fields.xlsx",
+            as_attachment=True,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+    else:
+        # Default CSV
+        sio = io.StringIO()
+        df.to_csv(sio, index=False)
+        data = io.BytesIO(sio.getvalue().encode('utf-8'))
+        data.seek(0)
+        return send_file(
+            data,
+            download_name=f"{safe(project.name)}_Static_Fields.csv",
+            as_attachment=True,
+            mimetype='text/csv',
+        )
