@@ -1,7 +1,15 @@
+## 10-09-2025
 - Create user register/login, ability to add project (project admin/owner), ability to add members to the project who can add studies and enter data
 - Add ability to choose from a list of items that can be added using a click-based selection. Initially, type of SRMA will be chosen and the user is presented with a list of items available from that template and the user may select/deselect items and/or add new items/fields.
 - For participant details like age, need to add mean/std for continuous vars for each group (eg. intervention, control) and percentage for categorical vars.
 - For outcomes to be recorded, ask in the 'customize form' stage itself about what the user would like to add as outcomes (or share protocol document to suggest outcomes). Later during data entry for individual studies, present these outcomes as a list to choose from and also retain the ability to add new outcome if needed.
 - Export outcomes (zip) does not seem to be working. Need to fix it.
+
+## 11-09-2025
 - Streamline data entry with dropdown based options wherever possible. To enable this, things can be set up at customize form stage itself.
+- Validation
+- Testing
+- Dockerization
+
+## Later on
 - More features and part 2 of the project after fixing the above.
