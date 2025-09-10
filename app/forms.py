@@ -26,8 +26,20 @@ class CustomFormFieldForm(FlaskForm):
             ('integer', 'Integer'),
             ('date', 'Date'),
             ('dichotomous_outcome', 'Dichotomous Outcome'),
+            ('baseline_continuous', 'Baseline: Continuous (mean/sd by group)'),
+            ('baseline_categorical', 'Baseline: Categorical (% by group)'),
         ],
         validators=[DataRequired()],
     )
     required = BooleanField('Required')
     submit = SubmitField('Save Field')
+
+
+class OutcomeForm(FlaskForm):
+    name = StringField('Outcome Name', validators=[DataRequired()])
+    outcome_type = SelectField(
+        'Outcome Type',
+        choices=[('dichotomous', 'Dichotomous'), ('continuous', 'Continuous')],
+        validators=[DataRequired()],
+    )
+    submit = SubmitField('Add Outcome')

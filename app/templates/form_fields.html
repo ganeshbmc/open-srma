@@ -8,12 +8,21 @@
     <a class="btn btn-secondary" href="{{ url_for('project_detail', project_id=project.id) }}">Back to Project</a>
   </div>
 
-  {% if fields %}
-    {# Group fields by section to avoid repeating headers #}
-    {% for group in fields|groupby('section') %}
+  {% if grouped_fields %}
+    {% for sec in grouped_fields %}
       <div class="card mt-4">
-        <div class="card-header">
-          <h4 class="mb-0 h5">{{ group.grouper }}</h4>
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h4 class="mb-0 h5">{{ sec.name }}</h4>
+          <div class="d-flex align-items-center gap-1">
+            <form method="POST" action="{{ url_for('move_form_section_up', project_id=project.id, section=sec.name) }}" style="display:inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-outline-secondary" type="submit" title="Move Section Up" {% if loop.first %}disabled{% endif %}>↑</button>
+            </form>
+            <form method="POST" action="{{ url_for('move_form_section_down', project_id=project.id, section=sec.name) }}" style="display:inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-outline-secondary" type="submit" title="Move Section Down" {% if loop.last %}disabled{% endif %}>↓</button>
+            </form>
+          </div>
         </div>
         <div class="card-body p-0">
           <table class="table table-sm align-middle mb-0">
@@ -26,7 +35,7 @@
               </tr>
             </thead>
             <tbody>
-              {% for f in group.list %}
+              {% for f in sec.fields %}
               <tr>
                 <td>{{ f.label }}</td>
                 <td>{{ f.field_type }}</td>
@@ -53,6 +62,49 @@
   {% else %}
     <p>No fields yet. Use "Add Field" to create your form.</p>
   {% endif %}
+
+  <!-- Outcomes management -->
+  <div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h4 class="mb-0 h5">Project Outcomes</h4>
+      <span class="text-muted small">Define outcomes suggested during data entry</span>
+    </div>
+    <div class="card-body">
+      {% if outcomes and outcomes|length > 0 %}
+        <ul class="list-group mb-3">
+          {% for o in outcomes|sort(attribute='name') %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <span class="fw-semibold">{{ o.name }}</span>
+                <span class="badge text-bg-light ms-2">{{ o.outcome_type }}</span>
+              </div>
+              <form method="POST" action="{{ url_for('delete_project_outcome', project_id=project.id, outcome_id=o.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="text-muted mb-3">No predefined outcomes yet.</div>
+      {% endif %}
+
+      <form method="POST" action="{{ url_for('add_project_outcome', project_id=project.id) }}" class="row g-2 align-items-end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-12 col-md-7">
+          {{ outcome_form.name.label(class="form-label") }}
+          {{ outcome_form.name(class="form-control", placeholder="e.g., Mortality at 30 days") }}
+        </div>
+        <div class="col-12 col-md-3">
+          {{ outcome_form.outcome_type.label(class="form-label") }}
+          {{ outcome_form.outcome_type(class="form-select") }}
+        </div>
+        <div class="col-12 col-md-2">
+          {{ outcome_form.submit(class="btn btn-primary w-100") }}
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- Delete confirmation modal -->
   <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">

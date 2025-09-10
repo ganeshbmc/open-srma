@@ -8,22 +8,22 @@
 
     <form method="POST" id="enter-data-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        {# Group fields by section to render header once per section #}
-        {% for group in form_fields|groupby('section') %}
+        {# Render sections in preserved order #}
+        {% for sec in grouped_fields %}
             <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     {% set sec_id = 'sec_' ~ loop.index %}
                     <button class="btn btn-link text-decoration-none p-0" type="button" data-bs-toggle="collapse" data-bs-target="#{{ sec_id }}" aria-expanded="true" aria-controls="{{ sec_id }}">
-                        <h4 class="mb-0 h5">{{ group.grouper }}</h4>
+                        <h4 class="mb-0 h5">{{ sec.name }}</h4>
                     </button>
                     <div class="d-flex align-items-center gap-2">
                       <span id="status-{{ sec_id }}" class="small text-muted"></span>
-                      <button type="button" class="btn btn-sm btn-outline-secondary save-section-btn" data-section-id="{{ sec_id }}" data-section-name="{{ group.grouper }}">Save Section</button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary save-section-btn" data-section-id="{{ sec_id }}" data-section-name="{{ sec.name }}">Save Section</button>
                     </div>
                 </div>
                 <div id="{{ sec_id }}" class="collapse show">
                 <div class="card-body">
-                    {% for field in group.list %}
+                    {% for field in sec.fields %}
                         <div class="mb-3">
                             <label class="form-label" for="field_{{ field.id }}">
                                 {{ field.label }}
@@ -52,6 +52,58 @@
                                         <input class="form-control" type="number" id="field_{{ field.id }}_total" name="field_{{ field.id }}_total" value="{{ value_data.total }}">
                                     </div>
                                 </div>
+                            {% elif field.field_type == 'baseline_continuous' %}
+                                {% set vd = existing_data[field.id] | from_json if field.id in existing_data and existing_data[field.id] else {'intervention': {'mean': '', 'sd': ''}, 'control': {'mean': '', 'sd': ''}} %}
+                                <div class="row g-3">
+                                  <div class="col-12 col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                      <div class="fw-semibold mb-2">Intervention</div>
+                                      <div class="row g-3">
+                                        <div class="col-6">
+                                          <label class="form-label" for="field_{{ field.id }}_int_mean">Mean</label>
+                                          <input class="form-control" type="number" step="0.01" id="field_{{ field.id }}_int_mean" name="field_{{ field.id }}_int_mean" value="{{ vd.intervention.mean }}">
+                                        </div>
+                                        <div class="col-6">
+                                          <label class="form-label" for="field_{{ field.id }}_int_sd">SD</label>
+                                          <input class="form-control" type="number" step="0.01" id="field_{{ field.id }}_int_sd" name="field_{{ field.id }}_int_sd" value="{{ vd.intervention.sd }}">
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div class="col-12 col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                      <div class="fw-semibold mb-2">Control</div>
+                                      <div class="row g-3">
+                                        <div class="col-6">
+                                          <label class="form-label" for="field_{{ field.id }}_ctrl_mean">Mean</label>
+                                          <input class="form-control" type="number" step="0.01" id="field_{{ field.id }}_ctrl_mean" name="field_{{ field.id }}_ctrl_mean" value="{{ vd.control.mean }}">
+                                        </div>
+                                        <div class="col-6">
+                                          <label class="form-label" for="field_{{ field.id }}_ctrl_sd">SD</label>
+                                          <input class="form-control" type="number" step="0.01" id="field_{{ field.id }}_ctrl_sd" name="field_{{ field.id }}_ctrl_sd" value="{{ vd.control.sd }}">
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                            {% elif field.field_type == 'baseline_categorical' %}
+                                {% set vdc = existing_data[field.id] | from_json if field.id in existing_data and existing_data[field.id] else {'intervention': {'percent': ''}, 'control': {'percent': ''}} %}
+                                <div class="row g-3">
+                                  <div class="col-12 col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                      <div class="fw-semibold mb-2">Intervention</div>
+                                      <label class="form-label" for="field_{{ field.id }}_int_pct">Percentage (%)</label>
+                                      <input class="form-control" type="number" step="0.01" min="0" max="100" id="field_{{ field.id }}_int_pct" name="field_{{ field.id }}_int_pct" value="{{ vdc.intervention.percent }}">
+                                    </div>
+                                  </div>
+                                  <div class="col-12 col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                      <div class="fw-semibold mb-2">Control</div>
+                                      <label class="form-label" for="field_{{ field.id }}_ctrl_pct">Percentage (%)</label>
+                                      <input class="form-control" type="number" step="0.01" min="0" max="100" id="field_{{ field.id }}_ctrl_pct" name="field_{{ field.id }}_ctrl_pct" value="{{ vdc.control.percent }}">
+                                    </div>
+                                  </div>
+                                </div>
                             {% else %}
                                 <p class="text-danger mb-0">Unsupported field type: {{ field.field_type }}</p>
                             {% endif %}
@@ -62,16 +114,36 @@
             </div>
         {% endfor %}
 
-        {# Numerical Outcomes Section #}
+        {# Numerical Outcomes Section - Dichotomous #}
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h4 class="mb-0 h5">Numerical Outcomes Data</h4>
+                <h4 class="mb-0 h5">Numerical Outcomes (Dichotomous)</h4>
                 <div class="d-flex align-items-center gap-2">
                   <span id="status-numerical_outcomes" class="small text-muted"></span>
                   <button type="button" id="add-numerical-outcome-btn" class="btn btn-sm btn-outline-primary">Add Row</button>
                 </div>
             </div>
             <div class="card-body">
+                {% set suggestions = project.outcomes.all() | selectattr('outcome_type', 'equalto', 'dichotomous') | list %}
+                {% if suggestions and suggestions|length > 0 %}
+                  <div class="row g-2 align-items-end mb-3">
+                    <div class="col-12 col-md-8">
+                      <label for="predefined_outcome" class="form-label">Add from predefined outcomes</label>
+                      <select class="form-select" id="predefined_outcome">
+                        <option value="">Select an outcome…</option>
+                        {% for o in suggestions|sort(attribute='name') %}
+                          <option value="{{ o.name }}">{{ o.name }}</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                    <div class="col-12 col-md-2">
+                      <button type="button" id="add-predefined-outcome-btn" class="btn btn-outline-secondary w-100">Add Selected</button>
+                    </div>
+                    <div class="col-12 col-md-2">
+                      <button type="button" id="add-all-predefined-outcome-btn" class="btn btn-outline-secondary w-100">Add All</button>
+                    </div>
+                  </div>
+                {% endif %}
                 <div class="table-responsive">
                   <table class="table table-sm align-middle mb-0">
                     <thead>
@@ -89,7 +161,57 @@
                 </div>
             </div>
         </div>
-        
+
+        {# Numerical Outcomes Section - Continuous #}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0 h5">Numerical Outcomes (Continuous)</h4>
+                <div class="d-flex align-items-center gap-2">
+                  <span id="status-continuous_outcomes" class="small text-muted"></span>
+                  <button type="button" id="add-continuous-outcome-btn" class="btn btn-sm btn-outline-primary">Add Row</button>
+                </div>
+            </div>
+            <div class="card-body">
+                {% set suggestions_c = project.outcomes.filter_by(outcome_type='continuous').all() %}
+                {% if suggestions_c and suggestions_c|length > 0 %}
+                  <div class="row g-2 align-items-end mb-3">
+                    <div class="col-12 col-md-8">
+                      <label for="predefined_cont_outcome" class="form-label">Add from predefined outcomes</label>
+                      <select class="form-select" id="predefined_cont_outcome">
+                        <option value="">Select an outcome…</option>
+                        {% for o in suggestions_c|sort(attribute='name') %}
+                          <option value="{{ o.name }}">{{ o.name }}</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                    <div class="col-12 col-md-2">
+                      <button type="button" id="add-predefined-cont-outcome-btn" class="btn btn-outline-secondary w-100">Add Selected</button>
+                    </div>
+                    <div class="col-12 col-md-2">
+                      <button type="button" id="add-all-predefined-cont-outcome-btn" class="btn btn-outline-secondary w-100">Add All</button>
+                    </div>
+                  </div>
+                {% endif %}
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th>Outcome Name</th>
+                        <th>Intervention Mean</th>
+                        <th>Intervention SD</th>
+                        <th>Intervention N</th>
+                        <th>Control Mean</th>
+                        <th>Control SD</th>
+                        <th>Control N</th>
+                        <th style="width:100px;">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="continuous-outcomes-tbody"></tbody>
+                  </table>
+                </div>
+            </div>
+        </div>
+
     </form>
 
     <div style="height: 64px"></div>
@@ -115,6 +237,8 @@
 
         let numericalOutcomeCount = 0;
         const existingNumericalOutcomes = {{ existing_numerical_outcomes | tojson }}; // Passed from Flask
+        let continuousOutcomeCount = 0;
+        const existingContinuousOutcomes = {{ existing_continuous_outcomes | tojson }};
 
         // --- Autosave helpers ---
         const autosaveTimers = {};
@@ -159,7 +283,7 @@
             const inputs = container ? container.querySelectorAll('input, textarea') : [];
             const map = new Map();
             const fieldIdFrom = (name) => {
-                const m = name && name.match(/^field_(\d+)(?:_(events|total))?$/);
+                const m = name && name.match(/^field_(\d+)(?:_(events|total|int_mean|int_sd|ctrl_mean|ctrl_sd|int_pct|ctrl_pct))?$/);
                 return m ? { id: parseInt(m[1], 10), part: m[2] || null } : null;
             };
             inputs.forEach((inp) => {
@@ -171,6 +295,18 @@
                     cur.events = inp.value;
                 } else if (meta.part === 'total') {
                     cur.total = inp.value;
+                } else if (meta.part === 'int_mean') {
+                    cur.int_mean = inp.value;
+                } else if (meta.part === 'int_sd') {
+                    cur.int_sd = inp.value;
+                } else if (meta.part === 'ctrl_mean') {
+                    cur.ctrl_mean = inp.value;
+                } else if (meta.part === 'ctrl_sd') {
+                    cur.ctrl_sd = inp.value;
+                } else if (meta.part === 'int_pct') {
+                    cur.int_pct = inp.value;
+                } else if (meta.part === 'ctrl_pct') {
+                    cur.ctrl_pct = inp.value;
                 } else {
                     cur.value = inp.value;
                 }
@@ -207,6 +343,8 @@
                 let payload;
                 if (sectionId === 'numerical_outcomes') {
                     payload = gatherNumericalOutcomesPayload();
+                } else if (sectionId === 'continuous_outcomes') {
+                    payload = gatherContinuousOutcomesPayload();
                 } else {
                     payload = gatherSectionPayload(sectionId, sectionName);
                 }
@@ -275,6 +413,118 @@
             scheduleAutosave('numerical_outcomes', 'numerical_outcomes');
         }
 
+        // Helpers to reuse empty dichotomous rows
+        function findEmptyDichRow() {
+            const rows = Array.from(document.querySelectorAll('#numerical-outcomes-tbody tr'));
+            for (const tr of rows) {
+                const index = tr.id.split('-').pop();
+                const getVal = (id) => {
+                    const el = tr.querySelector(`#${id}_${index}`);
+                    return el ? (el.value || '').trim() : '';
+                };
+                const on = getVal('outcome_name');
+                const ei = getVal('events_intervention');
+                const ti = getVal('total_intervention');
+                const ec = getVal('events_control');
+                const tc = getVal('total_control');
+                if (!on && !ei && !ti && !ec && !tc) {
+                    return { tr, index };
+                }
+            }
+            return null;
+        }
+        function fillDichRow(index, name) {
+            const nameEl = document.getElementById(`outcome_name_${index}`);
+            if (nameEl) nameEl.value = name;
+        }
+
+        function gatherContinuousOutcomesPayload() {
+            const rows = document.querySelectorAll('#continuous-outcomes-tbody tr');
+            const data = [];
+            rows.forEach((tr) => {
+                const index = tr.id.split('-').pop();
+                const getVal = (id) => {
+                    const el = tr.querySelector(`#${id}_${index}`);
+                    return el ? el.value : '';
+                };
+                data.push({
+                    outcome_name: getVal('cont_outcome_name'),
+                    mean_intervention: getVal('cont_mean_intervention'),
+                    sd_intervention: getVal('cont_sd_intervention'),
+                    n_intervention: getVal('cont_n_intervention'),
+                    mean_control: getVal('cont_mean_control'),
+                    sd_control: getVal('cont_sd_control'),
+                    n_control: getVal('cont_n_control'),
+                });
+            });
+            return { section: 'continuous_outcomes', continuous_outcomes: data };
+        }
+
+        function addContinuousOutcome(outcomeData = null) {
+            continuousOutcomeCount++;
+            const tbody = document.getElementById('continuous-outcomes-tbody');
+            const tr = document.createElement('tr');
+            tr.setAttribute('id', `continuous-outcome-row-${continuousOutcomeCount}`);
+
+            const outcomeName = outcomeData ? outcomeData.outcome_name : '';
+            const mi = outcomeData ? outcomeData.mean_intervention : '';
+            const sdi = outcomeData ? outcomeData.sd_intervention : '';
+            const ni = outcomeData ? outcomeData.n_intervention : '';
+            const mc = outcomeData ? outcomeData.mean_control : '';
+            const sdc = outcomeData ? outcomeData.sd_control : '';
+            const nc = outcomeData ? outcomeData.n_control : '';
+
+            tr.innerHTML = `
+              <td>
+                <input type=\"hidden\" name=\"cont_outcome_row_index\" value=\"${continuousOutcomeCount}\">
+                <input class=\"form-control form-control-sm\" type=\"text\" id=\"cont_outcome_name_${continuousOutcomeCount}\" name=\"cont_outcome_name_${continuousOutcomeCount}\" value=\"${outcomeName}\">
+              </td>
+              <td><input class=\"form-control form-control-sm\" type=\"number\" step=\"0.01\" id=\"cont_mean_intervention_${continuousOutcomeCount}\" name=\"cont_mean_intervention_${continuousOutcomeCount}\" value=\"${mi}\"></td>
+              <td><input class=\"form-control form-control-sm\" type=\"number\" step=\"0.01\" id=\"cont_sd_intervention_${continuousOutcomeCount}\" name=\"cont_sd_intervention_${continuousOutcomeCount}\" value=\"${sdi}\"></td>
+              <td><input class=\"form-control form-control-sm\" type=\"number\" id=\"cont_n_intervention_${continuousOutcomeCount}\" name=\"cont_n_intervention_${continuousOutcomeCount}\" value=\"${ni}\"></td>
+              <td><input class=\"form-control form-control-sm\" type=\"number\" step=\"0.01\" id=\"cont_mean_control_${continuousOutcomeCount}\" name=\"cont_mean_control_${continuousOutcomeCount}\" value=\"${mc}\"></td>
+              <td><input class=\"form-control form-control-sm\" type=\"number\" step=\"0.01\" id=\"cont_sd_control_${continuousOutcomeCount}\" name=\"cont_sd_control_${continuousOutcomeCount}\" value=\"${sdc}\"></td>
+              <td><input class=\"form-control form-control-sm\" type=\"number\" id=\"cont_n_control_${continuousOutcomeCount}\" name=\"cont_n_control_${continuousOutcomeCount}\" value=\"${nc}\"></td>
+              <td>
+                <button type=\"button\" class=\"btn btn-sm btn-outline-danger\" onclick=\"removeContinuousOutcome(${continuousOutcomeCount})\">Remove</button>
+              </td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        function removeContinuousOutcome(id) {
+            const row = document.getElementById(`continuous-outcome-row-${id}`);
+            if (row) row.remove();
+            scheduleAutosave('continuous_outcomes', 'continuous_outcomes');
+        }
+
+        // Helpers to reuse empty continuous rows
+        function findEmptyContRow() {
+            const rows = Array.from(document.querySelectorAll('#continuous-outcomes-tbody tr'));
+            for (const tr of rows) {
+                const index = tr.id.split('-').pop();
+                const getVal = (id) => {
+                    const el = tr.querySelector(`#${id}_${index}`);
+                    return el ? (el.value || '').trim() : '';
+                };
+                const on = getVal('cont_outcome_name');
+                const mi = getVal('cont_mean_intervention');
+                const sdi = getVal('cont_sd_intervention');
+                const ni = getVal('cont_n_intervention');
+                const mc = getVal('cont_mean_control');
+                const sdc = getVal('cont_sd_control');
+                const nc = getVal('cont_n_control');
+                if (!on && !mi && !sdi && !ni && !mc && !sdc && !nc) {
+                    return { tr, index };
+                }
+            }
+            return null;
+        }
+        function fillContRow(index, name) {
+            const nameEl = document.getElementById(`cont_outcome_name_${index}`);
+            if (nameEl) nameEl.value = name;
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             // Use event delegation for the add button
             document.addEventListener('click', function(event) {
@@ -282,6 +532,98 @@
                     addNumericalOutcome();
                     // schedule autosave for numerical outcomes after adding a row
                     scheduleAutosave('numerical_outcomes', 'numerical_outcomes');
+                }
+                if (event.target && event.target.id === 'add-predefined-outcome-btn') {
+                    const sel = document.getElementById('predefined_outcome');
+                    const name = sel ? (sel.value || '').trim() : '';
+                    if (name) {
+                        const existing = new Set(Array.from(document.querySelectorAll('#numerical-outcomes-tbody input[id^="outcome_name_"]')).map(el => (el.value || '').trim().toLowerCase()));
+                        if (existing.has(name.toLowerCase())) {
+                            setStatus('numerical_outcomes', 'Already added', 'text-warning');
+                            return;
+                        }
+                        const empty = findEmptyDichRow();
+                        if (empty) {
+                            fillDichRow(empty.index, name);
+                            scheduleAutosave('numerical_outcomes', 'numerical_outcomes');
+                            setStatus('numerical_outcomes', 'Added to empty row', 'text-success');
+                        } else {
+                            addNumericalOutcome({ outcome_name: name, events_intervention: '', total_intervention: '', events_control: '', total_control: '' });
+                            scheduleAutosave('numerical_outcomes', 'numerical_outcomes');
+                        }
+                    }
+                }
+                if (event.target && event.target.id === 'add-all-predefined-outcome-btn') {
+                    const sel = document.getElementById('predefined_outcome');
+                    const options = sel ? Array.from(sel.options).map(o => (o.value || '').trim()).filter(Boolean) : [];
+                    const existing = new Set(Array.from(document.querySelectorAll('#numerical-outcomes-tbody input[id^="outcome_name_"]')).map(el => (el.value || '').trim().toLowerCase()));
+                    let added = 0;
+                    options.forEach(name => {
+                        if (!existing.has(name.toLowerCase())) {
+                            const empty = findEmptyDichRow();
+                            if (empty) {
+                                fillDichRow(empty.index, name);
+                            } else {
+                                addNumericalOutcome({ outcome_name: name, events_intervention: '', total_intervention: '', events_control: '', total_control: '' });
+                            }
+                            existing.add(name.toLowerCase());
+                            added++;
+                        }
+                    });
+                    if (added > 0) {
+                        scheduleAutosave('numerical_outcomes', 'numerical_outcomes');
+                        setStatus('numerical_outcomes', `Added ${added} outcome(s)`, 'text-success');
+                    } else {
+                        setStatus('numerical_outcomes', 'No new outcomes to add', 'text-secondary');
+                    }
+                }
+                if (event.target && event.target.id === 'add-continuous-outcome-btn') {
+                    addContinuousOutcome();
+                    scheduleAutosave('continuous_outcomes', 'continuous_outcomes');
+                }
+                if (event.target && event.target.id === 'add-predefined-cont-outcome-btn') {
+                    const sel = document.getElementById('predefined_cont_outcome');
+                    const name = sel ? (sel.value || '').trim() : '';
+                    if (name) {
+                        const existing = new Set(Array.from(document.querySelectorAll('#continuous-outcomes-tbody input[id^="cont_outcome_name_"]')).map(el => (el.value || '').trim().toLowerCase()));
+                        if (existing.has(name.toLowerCase())) {
+                            setStatus('continuous_outcomes', 'Already added', 'text-warning');
+                            return;
+                        }
+                        const empty = findEmptyContRow();
+                        if (empty) {
+                            fillContRow(empty.index, name);
+                            scheduleAutosave('continuous_outcomes', 'continuous_outcomes');
+                            setStatus('continuous_outcomes', 'Added to empty row', 'text-success');
+                        } else {
+                            addContinuousOutcome({ outcome_name: name, mean_intervention: '', sd_intervention: '', n_intervention: '', mean_control: '', sd_control: '', n_control: '' });
+                            scheduleAutosave('continuous_outcomes', 'continuous_outcomes');
+                        }
+                    }
+                }
+                if (event.target && event.target.id === 'add-all-predefined-cont-outcome-btn') {
+                    const sel = document.getElementById('predefined_cont_outcome');
+                    const options = sel ? Array.from(sel.options).map(o => (o.value || '').trim()).filter(Boolean) : [];
+                    const existing = new Set(Array.from(document.querySelectorAll('#continuous-outcomes-tbody input[id^="cont_outcome_name_"]')).map(el => (el.value || '').trim().toLowerCase()));
+                    let added = 0;
+                    options.forEach(name => {
+                        if (!existing.has(name.toLowerCase())) {
+                            const empty = findEmptyContRow();
+                            if (empty) {
+                                fillContRow(empty.index, name);
+                            } else {
+                                addContinuousOutcome({ outcome_name: name, mean_intervention: '', sd_intervention: '', n_intervention: '', mean_control: '', sd_control: '', n_control: '' });
+                            }
+                            existing.add(name.toLowerCase());
+                            added++;
+                        }
+                    });
+                    if (added > 0) {
+                        scheduleAutosave('continuous_outcomes', 'continuous_outcomes');
+                        setStatus('continuous_outcomes', `Added ${added} outcome(s)`, 'text-success');
+                    } else {
+                        setStatus('continuous_outcomes', 'No new outcomes to add', 'text-secondary');
+                    }
                 }
                 if (event.target && event.target.classList.contains('save-section-btn')) {
                     const sectionId = event.target.getAttribute('data-section-id');
@@ -313,6 +655,15 @@
                     scheduleAutosave('numerical_outcomes', 'numerical_outcomes');
                 });
             }
+            const ctbody = document.getElementById('continuous-outcomes-tbody');
+            if (ctbody) {
+                ctbody.addEventListener('input', function() {
+                    scheduleAutosave('continuous_outcomes', 'continuous_outcomes');
+                });
+                ctbody.addEventListener('change', function() {
+                    scheduleAutosave('continuous_outcomes', 'continuous_outcomes');
+                });
+            }
 
             // Pre-populate existing numerical outcomes
             if (existingNumericalOutcomes && existingNumericalOutcomes.length > 0) {
@@ -320,6 +671,12 @@
             } else {
                 // Add one empty outcome section by default if none exist
                 addNumericalOutcome();
+            }
+            if (existingContinuousOutcomes && existingContinuousOutcomes.length > 0) {
+                existingContinuousOutcomes.forEach(outcome => addContinuousOutcome(outcome));
+            } else {
+                // Add one empty row by default
+                addContinuousOutcome();
             }
         });
     </script>

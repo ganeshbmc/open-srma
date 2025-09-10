@@ -14,12 +14,13 @@ def load_template_and_create_form_fields(project_id, template_id):
     except yaml.YAMLError as e:
         raise ValueError(f"Invalid YAML in template {template_path}: {e}") from e
 
-    for section_data in template_data.get('sections', []):
+    for idx, section_data in enumerate(template_data.get('sections', []), start=1):
         section_name = section_data.get('section_name')
         for field_data in section_data.get('fields', []):
             field = CustomFormField(
                 project_id=project_id,
                 section=section_name,
+                section_order=idx,
                 label=field_data.get('label'),
                 field_type=field_data.get('field_type'),
                 required=field_data.get('required', False),
