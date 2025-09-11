@@ -65,15 +65,17 @@ def upgrade():
         sa.PrimaryKeyConstraint('id'),
     )
 
-    # study.created_by
-    op.add_column('study', sa.Column('created_by', sa.Integer(), nullable=True))
-    op.create_foreign_key('fk_study_created_by_user', 'study', 'user', ['created_by'], ['id'])
+    # study.created_by (use batch mode for SQLite to support FK addition)
+    with op.batch_alter_table('study') as batch_op:
+        batch_op.add_column(sa.Column('created_by', sa.Integer(), nullable=True))
+        batch_op.create_foreign_key('fk_study_created_by_user', 'user', ['created_by'], ['id'])
 
 
 def downgrade():
-    # drop study.created_by
-    op.drop_constraint('fk_study_created_by_user', 'study', type_='foreignkey')
-    op.drop_column('study', 'created_by')
+    # drop study.created_by (batch for SQLite)
+    with op.batch_alter_table('study') as batch_op:
+        batch_op.drop_constraint('fk_study_created_by_user', type_='foreignkey')
+        batch_op.drop_column('created_by')
 
     # drop change requests and memberships, then users
     op.drop_table('form_change_request')

@@ -33,6 +33,7 @@ class CustomFormFieldForm(FlaskForm):
         validators=[DataRequired()],
     )
     required = BooleanField('Required')
+    change_reason = TextAreaField('Reason for request (optional)', description='Shown to project owners when approving member proposals')
     submit = SubmitField('Save Field')
 
 
@@ -43,6 +44,7 @@ class OutcomeForm(FlaskForm):
         choices=[('dichotomous', 'Dichotomous'), ('continuous', 'Continuous')],
         validators=[DataRequired()],
     )
+    reason = TextAreaField('Reason for request (optional)')
     submit = SubmitField('Add Outcome')
 
 

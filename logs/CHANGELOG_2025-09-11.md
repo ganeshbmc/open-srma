@@ -9,6 +9,7 @@ This session adds robust export features (CSV/Excel and zipped per‑outcome fil
 - New static fields export for a project:
   - Route: `GET /project/<id>/export_static?format=csv|xlsx`.
   - Buttons added on Project page for CSV and Excel.
+  - Updated: Excel export removed; static export is CSV-only and grouped under a single Export dropdown.
 - Outcomes (zip) export fixed and expanded:
   - Groups dichotomous outcomes per outcome name; legacy fallback from `dichotomous_outcome` static fields.
   - Adds continuous outcomes per outcome name.

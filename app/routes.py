@@ -8,7 +8,6 @@ from app.models import Project, Study, CustomFormField, StudyDataValue, StudyNum
 from app.utils import load_template_and_create_form_fields # Import the new utility function
 import json # Import json for handling dichotomous_outcome
 from pandas import DataFrame # Import pandas DataFrame
-import pandas as pd  # For Excel writer and general convenience
 
 # -------------------- RBAC helpers --------------------
 
@@ -38,12 +37,13 @@ def require_project_owner(project_id: int):
         abort(403)
 
 
-def _propose_change(project_id: int, action_type: str, payload: dict):
+def _propose_change(project_id: int, action_type: str, payload: dict, reason: str | None = None):
     fcr = FormChangeRequest(
         project_id=project_id,
         requested_by=current_user.id,
         action_type=action_type,
         payload=json.dumps(payload or {}),
+        reason=(reason.strip() if isinstance(reason, str) and reason.strip() else None),
         status='pending',
     )
     db.session.add(fcr)
@@ -485,7 +485,12 @@ def move_form_section_up(project_id, section):
     project = Project.query.get_or_404(project_id)
     ms = get_membership_for(project.id)
     if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
-        _propose_change(project.id, 'reorder_section', {'section': section, 'direction': 'up'})
+        _propose_change(
+            project.id,
+            'reorder_section',
+            {'section': section, 'direction': 'up'},
+            reason=request.form.get('reason')
+        )
         flash('Move section request submitted for approval.')
         return redirect(url_for('list_form_fields', project_id=project.id))
     _move_section(project.id, section, 'up')
@@ -498,7 +503,12 @@ def move_form_section_down(project_id, section):
     project = Project.query.get_or_404(project_id)
     ms = get_membership_for(project.id)
     if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
-        _propose_change(project.id, 'reorder_section', {'section': section, 'direction': 'down'})
+        _propose_change(
+            project.id,
+            'reorder_section',
+            {'section': section, 'direction': 'down'},
+            reason=request.form.get('reason')
+        )
         flash('Move section request submitted for approval.')
         return redirect(url_for('list_form_fields', project_id=project.id))
     _move_section(project.id, section, 'down')
@@ -533,7 +543,7 @@ def add_form_field(project_id):
                 'required': bool(form.required.data),
                 'help_text': (form.help_text.data.strip() if form.help_text.data else None),
             }
-            _propose_change(project.id, 'add_field', payload)
+            _propose_change(project.id, 'add_field', payload, reason=form.change_reason.data)
             flash('Field addition proposed for approval.')
             return redirect(url_for('list_form_fields', project_id=project.id))
         # Determine next sort_order within this section
@@ -605,7 +615,7 @@ def edit_form_field(project_id, field_id):
                     'help_text': (form.help_text.data.strip() if form.help_text.data else None),
                 }
             }
-            _propose_change(project.id, 'edit_field', payload)
+            _propose_change(project.id, 'edit_field', payload, reason=form.change_reason.data)
             flash('Field edit proposed for approval.')
             return redirect(url_for('list_form_fields', project_id=project.id))
         old_section = field.section
@@ -653,7 +663,7 @@ def add_project_outcome(project_id):
         outcome_type = form.outcome_type.data
         ms = get_membership_for(project.id)
         if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
-            _propose_change(project.id, 'add_outcome', {'name': name, 'outcome_type': outcome_type})
+            _propose_change(project.id, 'add_outcome', {'name': name, 'outcome_type': outcome_type}, reason=form.reason.data)
             flash('Outcome addition proposed for approval.')
             return redirect(url_for('list_form_fields', project_id=project.id))
         # Prevent duplicates by name (case-insensitive)
@@ -682,7 +692,7 @@ def delete_project_outcome(project_id, outcome_id):
     require_project_member(project.id)
     ms = get_membership_for(project.id)
     if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
-        _propose_change(project.id, 'delete_outcome', {'outcome_id': outcome_id})
+        _propose_change(project.id, 'delete_outcome', {'outcome_id': outcome_id}, reason=request.form.get('reason'))
         flash('Outcome deletion proposed for approval.')
         return redirect(url_for('list_form_fields', project_id=project.id))
     outcome = ProjectOutcome.query.filter_by(project_id=project.id, id=outcome_id).first_or_404()
@@ -700,7 +710,7 @@ def delete_form_field(project_id, field_id):
     field = CustomFormField.query.filter_by(project_id=project.id, id=field_id).first_or_404()
     ms = get_membership_for(project.id)
     if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
-        _propose_change(project.id, 'delete_field', {'field_id': field.id})
+        _propose_change(project.id, 'delete_field', {'field_id': field.id}, reason=request.form.get('reason'))
         flash('Field deletion proposed for approval.')
         return redirect(url_for('list_form_fields', project_id=project.id))
     section = field.section
@@ -733,7 +743,7 @@ def move_form_field_up(project_id, field_id):
     project = Project.query.get_or_404(project_id)
     ms = get_membership_for(project.id)
     if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
-        _propose_change(project.id, 'reorder_field', {'field_id': field_id, 'direction': 'up'})
+        _propose_change(project.id, 'reorder_field', {'field_id': field_id, 'direction': 'up'}, reason=request.form.get('reason'))
         flash('Move field request submitted for approval.')
         return redirect(url_for('list_form_fields', project_id=project.id))
     field = CustomFormField.query.filter_by(project_id=project.id, id=field_id).first_or_404()
@@ -757,7 +767,7 @@ def move_form_field_down(project_id, field_id):
     project = Project.query.get_or_404(project_id)
     ms = get_membership_for(project.id)
     if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
-        _propose_change(project.id, 'reorder_field', {'field_id': field_id, 'direction': 'down'})
+        _propose_change(project.id, 'reorder_field', {'field_id': field_id, 'direction': 'down'}, reason=request.form.get('reason'))
         flash('Move field request submitted for approval.')
         return redirect(url_for('list_form_fields', project_id=project.id))
     field = CustomFormField.query.filter_by(project_id=project.id, id=field_id).first_or_404()
@@ -915,6 +925,10 @@ def enter_data(project_id, study_id):
             'n_control': co.n_control,
         })
 
+    # Membership role for enforcement
+    ms = get_membership_for(project.id)
+    is_owner_or_admin = bool(is_admin() or (ms and (ms.role or '').lower() == 'owner'))
+
     if request.method == 'POST':
         # Save static form fields
         for field in form_fields:
@@ -994,6 +1008,10 @@ def enter_data(project_id, study_id):
             except ValueError:
                 pass # Not a valid outcome index
 
+        # Predefined dichotomous outcome names for members
+        allowed_dich = set(
+            [ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='dichotomous').all() ]
+        )
         for index in sorted(list(outcome_indices)):
             outcome_name = request.form.get(f'outcome_name_{index}')
             events_intervention = request.form.get(f'events_intervention_{index}', type=int)
@@ -1002,6 +1020,9 @@ def enter_data(project_id, study_id):
             total_control = request.form.get(f'total_control_{index}', type=int)
 
             if outcome_name: # Only save if outcome name is provided
+                # Enforce predefined names for members
+                if not is_owner_or_admin and (outcome_name or '').strip().lower() not in allowed_dich:
+                    continue
                 numerical_outcome = StudyNumericalOutcome(
                     study_id=study.id,
                     outcome_name=outcome_name,
@@ -1034,6 +1055,9 @@ def enter_data(project_id, study_id):
                 return int(v)
             except (TypeError, ValueError):
                 return None
+        allowed_cont = set(
+            [ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='continuous').all() ]
+        )
         for index in sorted(list(cont_indices)):
             cname = request.form.get(f'cont_outcome_name_{index}')
             mi = to_float(request.form.get(f'cont_mean_intervention_{index}'))
@@ -1043,6 +1067,8 @@ def enter_data(project_id, study_id):
             sdc = to_float(request.form.get(f'cont_sd_control_{index}'))
             nc = to_int(request.form.get(f'cont_n_control_{index}'))
             if cname:
+                if not is_owner_or_admin and (cname or '').strip().lower() not in allowed_cont:
+                    continue
                 co = StudyContinuousOutcome(
                     study_id=study.id,
                     outcome_name=cname,
@@ -1060,7 +1086,6 @@ def enter_data(project_id, study_id):
         return redirect(url_for('project_detail', project_id=project.id))
 
     # Role label for UI badge
-    ms = get_membership_for(project.id)
     if is_admin():
         role_label = 'Admin'
     elif ms and ms.role:
@@ -1077,6 +1102,7 @@ def enter_data(project_id, study_id):
         existing_numerical_outcomes=existing_numerical_outcomes,
         existing_continuous_outcomes=existing_continuous_outcomes,
         role_label=role_label,
+        is_owner_or_admin=is_owner_or_admin,
     )
 
 
@@ -1097,10 +1123,15 @@ def autosave_study_data(project_id, study_id):
             # Replace all numerical outcomes for this study with provided rows
             StudyNumericalOutcome.query.filter_by(study_id=study.id).delete()
             rows = data.get('numerical_outcomes') or []
+            ms = get_membership_for(project.id)
+            is_owner_or_admin = bool(is_admin() or (ms and (ms.role or '').lower() == 'owner'))
+            allowed = set([ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='dichotomous').all() ])
             for row in rows:
                 outcome_name = (row.get('outcome_name') or '').strip()
                 if not outcome_name:
                     continue
+                if not is_owner_or_admin and outcome_name.lower() not in allowed:
+                    return jsonify({'ok': False, 'error': f'Unauthorized outcome name: {outcome_name}'}), 400
                 def to_int(v):
                     if v is None or v == '':
                         return None
@@ -1124,6 +1155,9 @@ def autosave_study_data(project_id, study_id):
             # Replace all continuous outcomes for this study with provided rows
             StudyContinuousOutcome.query.filter_by(study_id=study.id).delete()
             rows = data.get('continuous_outcomes') or []
+            ms = get_membership_for(project.id)
+            is_owner_or_admin = bool(is_admin() or (ms and (ms.role or '').lower() == 'owner'))
+            allowed = set([ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='continuous').all() ])
             def to_float(v):
                 if v is None or v == '':
                     return None
@@ -1142,6 +1176,8 @@ def autosave_study_data(project_id, study_id):
                 outcome_name = (row.get('outcome_name') or '').strip()
                 if not outcome_name:
                     continue
+                if not is_owner_or_admin and outcome_name.lower() not in allowed:
+                    return jsonify({'ok': False, 'error': f'Unauthorized outcome name: {outcome_name}'}), 400
                 co = StudyContinuousOutcome(
                     study_id=study.id,
                     outcome_name=outcome_name,
@@ -1251,9 +1287,10 @@ def autosave_study_data(project_id, study_id):
         db.session.rollback()
         return jsonify({'ok': False, 'error': str(e)}), 500
 
-@app.route('/project/<int:project_id>/export_jamovi')
+@app.route('/project/<int:project_id>/export_outcomes')
+@app.route('/project/<int:project_id>/export_jamovi')  # backward-compatible alias
 @login_required
-def export_jamovi(project_id):
+def export_outcomes(project_id):
     project = Project.query.get_or_404(project_id)
     require_project_member(project.id)
 
@@ -1267,8 +1304,8 @@ def export_jamovi(project_id):
         return "".join([c for c in (name or '') if c.isalnum() or c in (' ', '.', '_', '-')]).strip() or 'outcome'
 
     with zipfile.ZipFile(zip_buffer, mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
-        # Define columns for Jamovi export
-        jamovi_columns = ['Study', 'Intervention_events', 'Intervention_total', 'Control_events', 'Control_Total']
+        # Define columns for outcomes export
+        outcome_columns = ['Study', 'Intervention_events', 'Intervention_total', 'Control_events', 'Control_Total']
 
         # Try primary source: StudyNumericalOutcome rows
         outcomes_data = {}
@@ -1290,7 +1327,7 @@ def export_jamovi(project_id):
         for outcome_name, data_rows in outcomes_data.items():
             if not data_rows:
                 continue
-            df = DataFrame(data_rows, columns=jamovi_columns)
+            df = DataFrame(data_rows, columns=outcome_columns)
             output = io.StringIO()
             df.to_csv(output, index=False)
             output.seek(0)
@@ -1332,7 +1369,7 @@ def export_jamovi(project_id):
                             'Control_Total': None,
                         })
                 if rows:
-                    df = DataFrame(rows, columns=jamovi_columns)
+                    df = DataFrame(rows, columns=outcome_columns)
                     output = io.StringIO()
                     df.to_csv(output, index=False)
                     output.seek(0)
@@ -1393,17 +1430,14 @@ def export_jamovi(project_id):
 @app.route('/project/<int:project_id>/export_static')
 @login_required
 def export_static(project_id):
-    """Export all static (non-tabular) custom form fields for all studies in a project.
+    """Export all static (non-tabular) custom form fields for all studies in a project as CSV.
 
     Produces a flat table with columns:
     - Study metadata: Study, Author, Year
-    - One column per CustomFormField (or two for dichotomous_outcome: events/total)
-
-    Query param: format=csv|xlsx (default csv)
+    - One column per CustomFormField (or multiple columns for composite types)
     """
     project = Project.query.get_or_404(project_id)
     require_project_member(project.id)
-    out_format = (request.args.get('format') or 'csv').lower()
 
     # Load fields in a stable, user-visible order
     fields = (
@@ -1500,30 +1534,17 @@ def export_static(project_id):
     # Safe filename components
     def safe(name: str):
         return "".join([c for c in name or '' if c.isalnum() or c in (' ', '.', '_', '-')]).strip() or 'project'
-
-    if out_format == 'xlsx':
-        buf = io.BytesIO()
-        with pd.ExcelWriter(buf, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='StaticFields')
-        buf.seek(0)
-        return send_file(
-            buf,
-            download_name=f"{safe(project.name)}_Static_Fields.xlsx",
-            as_attachment=True,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        )
-    else:
-        # Default CSV
-        sio = io.StringIO()
-        df.to_csv(sio, index=False)
-        data = io.BytesIO(sio.getvalue().encode('utf-8'))
-        data.seek(0)
-        return send_file(
-            data,
-            download_name=f"{safe(project.name)}_Static_Fields.csv",
-            as_attachment=True,
-            mimetype='text/csv',
-        )
+    # CSV only
+    sio = io.StringIO()
+    df.to_csv(sio, index=False)
+    data = io.BytesIO(sio.getvalue().encode('utf-8'))
+    data.seek(0)
+    return send_file(
+        data,
+        download_name=f"{safe(project.name)}_Static_Fields.csv",
+        as_attachment=True,
+        mimetype='text/csv',
+    )
 
 
 @app.route('/project/<int:project_id>/export_all_zip')
@@ -1612,8 +1633,8 @@ def export_all_zip(project_id):
 
     static_df = DataFrame(rows, columns=columns)
 
-    # Build outcome CSVs (same logic as export_jamovi)
-    jamovi_columns = ['Study', 'Intervention_events', 'Intervention_total', 'Control_events', 'Control_Total']
+    # Build outcome CSVs (same logic as export_outcomes)
+    outcome_columns = ['Study', 'Intervention_events', 'Intervention_total', 'Control_events', 'Control_Total']
     outcomes_data = {}
     studies = project.studies.order_by(Study.id.asc()).all()
     for study in studies:
@@ -1642,7 +1663,7 @@ def export_all_zip(project_id):
         for outcome_name, data_rows in outcomes_data.items():
             if not data_rows:
                 continue
-            df = DataFrame(data_rows, columns=jamovi_columns)
+            df = DataFrame(data_rows, columns=outcome_columns)
             out_sio = io.StringIO()
             df.to_csv(out_sio, index=False)
             out_sio.seek(0)

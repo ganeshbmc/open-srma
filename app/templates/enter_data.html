@@ -125,7 +125,9 @@
                 <h4 class="mb-0 h5">Numerical Outcomes (Dichotomous)</h4>
                 <div class="d-flex align-items-center gap-2">
                   <span id="status-numerical_outcomes" class="small text-muted"></span>
-                  <button type="button" id="add-numerical-outcome-btn" class="btn btn-sm btn-outline-primary">Add Row</button>
+                  {% if is_owner_or_admin %}
+                    <button type="button" id="add-numerical-outcome-btn" class="btn btn-sm btn-outline-primary">Add Row</button>
+                  {% endif %}
                 </div>
             </div>
             <div class="card-body">
@@ -173,7 +175,9 @@
                 <h4 class="mb-0 h5">Numerical Outcomes (Continuous)</h4>
                 <div class="d-flex align-items-center gap-2">
                   <span id="status-continuous_outcomes" class="small text-muted"></span>
-                  <button type="button" id="add-continuous-outcome-btn" class="btn btn-sm btn-outline-primary">Add Row</button>
+                  {% if is_owner_or_admin %}
+                    <button type="button" id="add-continuous-outcome-btn" class="btn btn-sm btn-outline-primary">Add Row</button>
+                  {% endif %}
                 </div>
             </div>
             <div class="card-body">
@@ -673,14 +677,13 @@
             // Pre-populate existing numerical outcomes
             if (existingNumericalOutcomes && existingNumericalOutcomes.length > 0) {
                 existingNumericalOutcomes.forEach(outcome => addNumericalOutcome(outcome));
-            } else {
-                // Add one empty outcome section by default if none exist
+            } else if ({{ 'true' if is_owner_or_admin else 'false' }}) {
+                // Owners/Admins get one empty row by default
                 addNumericalOutcome();
             }
             if (existingContinuousOutcomes && existingContinuousOutcomes.length > 0) {
                 existingContinuousOutcomes.forEach(outcome => addContinuousOutcome(outcome));
-            } else {
-                // Add one empty row by default
+            } else if ({{ 'true' if is_owner_or_admin else 'false' }}) {
                 addContinuousOutcome();
             }
         });

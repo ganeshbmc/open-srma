@@ -5,12 +5,13 @@
 - [x] Export outcomes (zip) does not seem to be working. Need to fix it.
 
 ## 11-09-2025
-- Create user register/login, ability to add project (project admin/owner), ability to add members to the project who can add studies and enter data. See RBAC plan: [RBAC Rules and Workflow](RBAC_info.md)
-- Streamline data entry with dropdown based options wherever possible. To enable this, things can be set up at customize form stage itself.
-- Validation
-- Testing
-- Dockerization
-- Deployment
+- [x] Create user register/login, ability to add project (project admin/owner), ability to add members to the project who can add studies and enter data. See RBAC plan: [RBAC Rules and Workflow](RBAC_info.md)
+- [ ] Streamline data entry with dropdown based options wherever possible. To enable this, things can be set up at customize form stage itself.
+- [ ] Validation
+- [ ] Testing
+- [ ] Dockerization
+- [ ] Deployment
+- [ ] CI/CD Github actions
 
 ## Later on
 - More features and part 2 of the project after fixing the above.

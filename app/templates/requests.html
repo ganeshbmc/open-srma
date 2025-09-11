@@ -13,17 +13,24 @@
             <div>
               <div class="fw-semibold">{{ r.action_type }} <span class="badge text-bg-warning text-uppercase">{{ r.status }}</span></div>
               <div class="small text-muted">Requested by: {{ r.requester.name }} ({{ r.requester.email }}) · {{ r.created_at }}</div>
+              {% if r.reason %}
+                <div class="mt-2"><span class="fw-semibold">Reason:</span> {{ r.reason }}</div>
+              {% endif %}
               <pre class="mt-2 mb-0 small">{{ r.payload }}</pre>
             </div>
             <div class="ms-3">
-              <form method="POST" action="{{ url_for('act_on_change_request', project_id=project.id, req_id=r.id, action='approve') }}" class="d-inline">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-sm btn-success">Approve</button>
-              </form>
-              <form method="POST" action="{{ url_for('act_on_change_request', project_id=project.id, req_id=r.id, action='reject') }}" class="d-inline">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
-              </form>
+              {% if r.status == 'pending' %}
+                <form method="POST" action="{{ url_for('act_on_change_request', project_id=project.id, req_id=r.id, action='approve') }}" class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                </form>
+                <form method="POST" action="{{ url_for('act_on_change_request', project_id=project.id, req_id=r.id, action='reject') }}" class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
+                </form>
+              {% else %}
+                <span class="badge text-bg-secondary">Resolved</span>
+              {% endif %}
             </div>
           </div>
         </div>
@@ -33,4 +40,3 @@
     </div>
   </div>
 {% endblock %}
-

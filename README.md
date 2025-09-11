@@ -15,7 +15,7 @@ For authentication, roles, and permissions, see: [RBAC Rules and Workflow](RBAC_
 - 📊 Built-in integration with R (`meta`, `metafor`) for forest plots, funnel plots, and advanced analyses
 - 🔄 Flexible outputs:
   - Standardized CSV/JSON exports
-  - Project-wide static field export to CSV/Excel
+  - Project-wide static field export to CSV
   - Compatible with RevMan, JASP, MetaXL, CMA
   - Seamless use in custom R or Python pipelines
 - 📈 One-click HTML/PDF reports with forest/funnel plots and model summaries

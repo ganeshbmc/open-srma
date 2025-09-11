@@ -13,20 +13,34 @@
           <p class="text-muted mb-0">{{ project.description }}</p>
         {% endif %}
       </div>
-      <div class="text-end">
+      <div class="text-end d-flex flex-wrap justify-content-end gap-2">
         <a href="{{ url_for('list_form_fields', project_id=project.id) }}" class="btn btn-outline-secondary">Customize Form{% if is_owner_or_admin and pending_count and pending_count > 0 %} <span class="badge text-bg-warning">{{ pending_count }}</span>{% endif %}</a>
-        <a href="{{ url_for('export_static', project_id=project.id, format='csv') }}" class="btn btn-outline-success">Export Static Fields (CSV)</a>
-        <a href="{{ url_for('export_static', project_id=project.id, format='xlsx') }}" class="btn btn-outline-success">Export Static Fields (Excel)</a>
-        {% if outcome_row_count > 0 %}
-          <a href="{{ url_for('export_jamovi', project_id=project.id) }}" class="btn btn-success">Export Outcomes (zip)</a>
-        {% else %}
-          <button type="button" class="btn btn-success" disabled data-bs-toggle="tooltip" data-bs-title="No outcomes recorded yet. Add outcomes in study pages to enable export.">Export Outcomes (zip)</button>
-        {% endif %}
+
+        <div class="btn-group">
+          <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Export</button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+              <a class="dropdown-item" href="{{ url_for('export_static', project_id=project.id, format='csv') }}">Static Fields (CSV)</a>
+            </li>
+            <li>
+              {% if outcome_row_count > 0 %}
+                <a class="dropdown-item" href="{{ url_for('export_outcomes', project_id=project.id) }}">Outcomes (zip)</a>
+              {% else %}
+                <button type="button" class="dropdown-item disabled" data-bs-toggle="tooltip" data-bs-title="No outcomes recorded yet">Outcomes (zip)</button>
+              {% endif %}
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <a class="dropdown-item" href="{{ url_for('export_all_zip', project_id=project.id) }}">Export All Data (zip)</a>
+            </li>
+          </ul>
+        </div>
+
         {% if is_owner_or_admin %}
           <a href="{{ url_for('list_change_requests', project_id=project.id) }}" class="btn btn-outline-secondary">Requests{% if pending_count and pending_count > 0 %} ({{ pending_count }}){% endif %}</a>
           <a href="{{ url_for('manage_members', project_id=project.id) }}" class="btn btn-outline-secondary">Members</a>
+          <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteProjectModal">Delete Project</button>
         {% endif %}
-        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteProjectModal">Delete Project</button>
       </div>
     </div>
 

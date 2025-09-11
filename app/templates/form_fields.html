@@ -27,11 +27,11 @@
         <div class="card-header d-flex justify-content-between align-items-center">
           <h4 class="mb-0 h5">{{ sec.name }}</h4>
           <div class="d-flex align-items-center gap-1">
-            <form method="POST" action="{{ url_for('move_form_section_up', project_id=project.id, section=sec.name) }}" style="display:inline">
+            <form method="POST" action="{{ url_for('move_form_section_up', project_id=project.id, section=sec.name) }}" style="display:inline" {% if not (current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first())) %}data-requires-reason="true"{% endif %}>
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button class="btn btn-sm btn-outline-secondary" type="submit" title="Move Section Up" {% if loop.first %}disabled{% endif %}>↑</button>
             </form>
-            <form method="POST" action="{{ url_for('move_form_section_down', project_id=project.id, section=sec.name) }}" style="display:inline">
+            <form method="POST" action="{{ url_for('move_form_section_down', project_id=project.id, section=sec.name) }}" style="display:inline" {% if not (current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first())) %}data-requires-reason="true"{% endif %}>
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button class="btn btn-sm btn-outline-secondary" type="submit" title="Move Section Down" {% if loop.last %}disabled{% endif %}>↓</button>
             </form>
@@ -54,16 +54,16 @@
                 <td>{{ f.field_type }}</td>
                 <td>{{ 'Yes' if f.required else 'No' }}</td>
                 <td>
-                  <form method="POST" action="{{ url_for('move_form_field_up', project_id=project.id, field_id=f.id) }}" style="display:inline">
+                  <form method="POST" action="{{ url_for('move_form_field_up', project_id=project.id, field_id=f.id) }}" style="display:inline" {% if not (current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first())) %}data-requires-reason="true"{% endif %}>
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="btn btn-sm btn-outline-secondary" type="submit" title="Move Up">↑</button>
                   </form>
-                  <form method="POST" action="{{ url_for('move_form_field_down', project_id=project.id, field_id=f.id) }}" style="display:inline">
+                  <form method="POST" action="{{ url_for('move_form_field_down', project_id=project.id, field_id=f.id) }}" style="display:inline" {% if not (current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first())) %}data-requires-reason="true"{% endif %}>
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="btn btn-sm btn-outline-secondary" type="submit" title="Move Down">↓</button>
                   </form>
                   <a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit_form_field', project_id=project.id, field_id=f.id) }}">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{{ url_for('delete_form_field', project_id=project.id, field_id=f.id) }}">Delete</button>
+                  <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{{ url_for('delete_form_field', project_id=project.id, field_id=f.id) }}" {% if not (current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first())) %}data-requires-reason="true"{% endif %}>Delete</button>
                 </td>
               </tr>
               {% endfor %}
@@ -91,7 +91,7 @@
                 <span class="fw-semibold">{{ o.name }}</span>
                 <span class="badge text-bg-light ms-2">{{ o.outcome_type }}</span>
               </div>
-              <form method="POST" action="{{ url_for('delete_project_outcome', project_id=project.id, outcome_id=o.id) }}">
+              <form method="POST" action="{{ url_for('delete_project_outcome', project_id=project.id, outcome_id=o.id) }}" {% if not (current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first())) %}data-requires-reason="true"{% endif %}>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
               </form>
@@ -112,9 +112,13 @@
           {{ outcome_form.outcome_type.label(class="form-label") }}
           {{ outcome_form.outcome_type(class="form-select") }}
         </div>
-        <div class="col-12 col-md-2">
-          {{ outcome_form.submit(class="btn btn-primary w-100") }}
-        </div>
+        {% if not (current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first())) %}
+          <div class="col-12">
+            {{ outcome_form.reason.label(class="form-label") }}
+            {{ outcome_form.reason(class="form-control", rows=2, placeholder="Explain why this outcome should be added") }}
+          </div>
+        {% endif %}
+        <div class="col-12 col-md-2">{{ outcome_form.submit(class="btn btn-primary w-100") }}</div>
       </form>
     </div>
   </div>
@@ -134,6 +138,7 @@
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
           <form id="confirmDeleteForm" method="POST" action="#">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="reason" id="deleteFieldReason">
             <button type="submit" class="btn btn-danger">Delete</button>
           </form>
         </div>
@@ -149,7 +154,31 @@
         const url = button.getAttribute('data-delete-url');
         const form = document.getElementById('confirmDeleteForm');
         form.setAttribute('action', url);
+        // If member, prompt a reason and set hidden field
+        const requires = button.hasAttribute('data-requires-reason');
+        const reasonEl = document.getElementById('deleteFieldReason');
+        if (requires && reasonEl) {
+          const r = prompt('Optional: reason for this request');
+          reasonEl.value = (r || '').trim();
+        } else if (reasonEl) {
+          reasonEl.value = '';
+        }
       });
     }
+
+    // For member actions, prompt an optional reason and inject into form
+    document.addEventListener('submit', function (e) {
+      const form = e.target;
+      if (form && form.hasAttribute('data-requires-reason')) {
+        const r = prompt('Optional: reason for this request');
+        if (r !== null) {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = 'reason';
+          input.value = (r || '').trim();
+          form.appendChild(input);
+        }
+      }
+    });
   </script>
 {% endblock %}
