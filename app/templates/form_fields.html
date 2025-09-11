@@ -1,11 +1,24 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <h1>Customize Data Extraction Form — {{ project.name }}</h1>
+  <h1 class="d-flex align-items-center gap-2"> 
+    <span>Customize Data Extraction Form — {{ project.name }}</span>
+    {% if role_label %}
+      <span class="badge text-bg-light">{{ role_label }}</span>
+    {% endif %}
+  </h1>
+
+  {% if not (current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first())) %}
+    <div class="alert alert-info">You are a project member. Changes you make here will be submitted for owner approval.</div>
+  {% endif %}
 
   <div class="mb-3">
     <a class="btn btn-primary" href="{{ url_for('add_form_field', project_id=project.id) }}">Add Field</a>
     <a class="btn btn-secondary" href="{{ url_for('project_detail', project_id=project.id) }}">Back to Project</a>
+    {% if current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first()) %}
+      <a class="btn btn-outline-secondary" href="{{ url_for('list_change_requests', project_id=project.id) }}">Pending Requests{% if pending_count and pending_count > 0 %} ({{ pending_count }}){% endif %}</a>
+      <a class="btn btn-outline-secondary" href="{{ url_for('manage_members', project_id=project.id) }}">Members</a>
+    {% endif %}
   </div>
 
   {% if grouped_fields %}

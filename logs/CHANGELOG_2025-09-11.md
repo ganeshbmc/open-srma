@@ -98,3 +98,66 @@ This session adds robust export features (CSV/Excel and zipped per‑outcome fil
     - `POST /project/<id>/form_sections/<section>/move_up`
     - `POST /project/<id>/form_sections/<section>/move_down`
   - Helpers `_normalize_section_orders` and `_move_section` update `section_order` across the section.
+
+---
+
+## RBAC and Access Control (2025-09-11)
+
+### Dependencies
+- Added `Flask-Login==0.6.3` to requirements.
+
+### Models & Migrations
+- New models:
+  - `User`: accounts with `email`, `name`, `password_hash`, `is_admin`, `is_active`, timestamps.
+  - `ProjectMembership`: links users to projects with `role` (`owner`|`member`) and unique `(user_id, project_id)`.
+  - `FormChangeRequest`: queued member proposals for form/outcome changes with status workflow.
+- Updated models:
+  - `Study.created_by` (nullable FK to `user.id`).
+  - `Project.memberships` relationship added.
+- Migration added: `e3a1b9c7a001_add_rbac_models.py` (follows `c1de23a4b567`).
+  - Fix: set `down_revision` to `c1de23a4b567` to avoid multiple heads.
+
+### Auth & RBAC Helpers
+- Initialized `LoginManager` and `user_loader` in `app/__init__.py`.
+- Helpers in routes: `is_admin()`, `get_membership_for()`, `require_project_member()`, `require_project_owner()`.
+- Index (`/`) now requires login; shows projects by membership (admins see all).
+- Creating a project makes the creator an Owner via a membership row.
+
+### Routes (Auth, Membership, Requests)
+- Auth:
+  - `GET/POST /register` (register new user)
+  - `GET/POST /login` (login)
+  - `POST /logout`
+- Membership management (Owner/Admin):
+  - `GET/POST /project/<id>/members` (add existing users by email; set role owner/member)
+- Change requests (Owner/Admin):
+  - `GET /project/<id>/requests` (list)
+  - `POST /project/<id>/requests/<req_id>/approve|reject`
+
+### Form/Outcome Change Proposals
+- Members proposing add/edit/delete field, move up/down, add/delete outcome now create `FormChangeRequest` instead of applying immediately.
+- Owners/Admins still apply changes immediately.
+- Approval application implemented for: `add_field`, `edit_field`, `delete_field`, `add_outcome`, `delete_outcome`.
+- Reorder (`reorder_field`, `reorder_section`) is captured but not auto‑applied yet (owner can reorder directly). Future work: apply on approve.
+
+### Route Guards
+- Project pages, enter data, exports: require membership.
+- Setup/customize form, manage members, approve requests, delete project: Owner/Admin only.
+
+### CLI Helpers
+- New Flask CLI commands (documented in `make_commands.md`):
+  - `flask create-user [--admin]`
+  - `flask promote-admin <email>`
+  - `flask add-membership <email> <project_id> <owner|member>`
+- Implemented in `app/cli.py` and registered in app init.
+
+### UI Updates
+- Navbar shows Login/Register or Logout + user name.
+- New pages: `auth_login.html`, `auth_register.html`, `members.html`, `requests.html`.
+- Role badges (Admin/Owner/Member) surfaced on:
+  - Project list, Project detail, Customize Form, and Enter Data pages.
+- Pending requests badges on Project detail and Customize Form.
+
+### Documentation
+- Added `RBAC_info.md` detailing roles, permissions, workflows, and payload shapes.
+- Linked from `README.md`, `next_steps.md`, `DESIGN_AND_PLAN.md`, `AGENTS.md`, and `make_commands.md`.

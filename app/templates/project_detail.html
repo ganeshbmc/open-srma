@@ -3,19 +3,28 @@
 {% block content %}
     <div class="d-flex align-items-start justify-content-between mb-3">
       <div>
-        <h1 class="mb-1">{{ project.name }}</h1>
+        <h1 class="mb-1 d-flex align-items-center gap-2">
+          <span>{{ project.name }}</span>
+          {% if role_label %}
+            <span class="badge text-bg-light">{{ role_label }}</span>
+          {% endif %}
+        </h1>
         {% if project.description %}
           <p class="text-muted mb-0">{{ project.description }}</p>
         {% endif %}
       </div>
       <div class="text-end">
-        <a href="{{ url_for('list_form_fields', project_id=project.id) }}" class="btn btn-outline-secondary">Customize Form</a>
+        <a href="{{ url_for('list_form_fields', project_id=project.id) }}" class="btn btn-outline-secondary">Customize Form{% if is_owner_or_admin and pending_count and pending_count > 0 %} <span class="badge text-bg-warning">{{ pending_count }}</span>{% endif %}</a>
         <a href="{{ url_for('export_static', project_id=project.id, format='csv') }}" class="btn btn-outline-success">Export Static Fields (CSV)</a>
         <a href="{{ url_for('export_static', project_id=project.id, format='xlsx') }}" class="btn btn-outline-success">Export Static Fields (Excel)</a>
         {% if outcome_row_count > 0 %}
           <a href="{{ url_for('export_jamovi', project_id=project.id) }}" class="btn btn-success">Export Outcomes (zip)</a>
         {% else %}
           <button type="button" class="btn btn-success" disabled data-bs-toggle="tooltip" data-bs-title="No outcomes recorded yet. Add outcomes in study pages to enable export.">Export Outcomes (zip)</button>
+        {% endif %}
+        {% if is_owner_or_admin %}
+          <a href="{{ url_for('list_change_requests', project_id=project.id) }}" class="btn btn-outline-secondary">Requests{% if pending_count and pending_count > 0 %} ({{ pending_count }}){% endif %}</a>
+          <a href="{{ url_for('manage_members', project_id=project.id) }}" class="btn btn-outline-secondary">Members</a>
         {% endif %}
         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteProjectModal">Delete Project</button>
       </div>

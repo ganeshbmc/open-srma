@@ -2,7 +2,12 @@
 
 {% block content %}
     <div class="d-flex align-items-center justify-content-between mb-3">
-      <h1 class="mb-0">Enter Data</h1>
+      <h1 class="mb-0 d-flex align-items-center gap-2">
+        <span>Enter Data</span>
+        {% if role_label %}
+          <span class="badge text-bg-light">{{ role_label }}</span>
+        {% endif %}
+      </h1>
       <div class="text-muted">Study: {{ study.title }} · Project: {{ project.name }}</div>
     </div>
 

@@ -7,6 +7,8 @@ See the high-level overview: [Project Summary](project_summary.md).
 
 For upcoming roadmap tasks, see: [Next Steps](next_steps.md).
 
+For authentication, roles, and permissions, see: [RBAC Rules and Workflow](RBAC_info.md).
+
 ### ✨ Features
 - 📑 Structured web-based forms for data extraction (multi-user, double entry & reconciliation)
 - 📝 Narrative synthesis support (study characteristics, risk of bias, qualitative summaries)
