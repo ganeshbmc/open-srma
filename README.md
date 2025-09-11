@@ -41,3 +41,10 @@ The project is divided into two main parts:
 
 ### 📜 License
 [MIT License](LICENSE) – free to use, modify, and share.
+
+### 🧪 Demo Accounts (for local development)
+If you run `make seed`, the script creates demo users and a sample project:
+- Owner (admin): `owner@example.com` / `demo123`
+- Member: `member@example.com` / `demo123`
+
+These credentials are intended for local development only. The seed script also prints them after seeding. Remove demo data with `make seed-clean`.

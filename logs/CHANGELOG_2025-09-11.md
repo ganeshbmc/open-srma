@@ -62,6 +62,7 @@ This session adds robust export features (CSV/Excel and zipped per‑outcome fil
 - Migrations added:
   - `ab12cd34ef56_add_project_outcome.py`
   - `bcf12345add6_add_study_continuous_outcome.py`
+  - `fea12db89a10_add_options_to_custom_form_field.py` (select/dropdown support)
 
 ### Files Updated
 - Routes: `app/routes.py`
@@ -111,6 +112,24 @@ This session adds robust export features (CSV/Excel and zipped per‑outcome fil
   - Added `Female (%)` as `baseline_categorical` (percent per arm).
   - Added common baseline continuous fields such as `BMI` and a generic `Baseline severity/score` as `baseline_continuous`.
 - App already supports these types in data entry and exports; no code changes required beyond YAML import (help texts are stored).
+
+### RCT Template v2 (Dropdowns and NR)
+- Added `app/form_templates/rct_v2.yaml` with dropdown/select support and NR (not reported) options:
+  - `Assessor` uses `select_member` to pick from project owners/members (plus NR).
+  - `Randomization type` and multiple blinding fields use `select` with preset choices and optional NR.
+- Model changes: `CustomFormField.options` (JSON) stores select choices and configuration.
+- Loader: `load_template_and_create_form_fields` now reads `options` from YAML and persists it.
+- Enter Data UI: renders `select` and `select_member` fields; `select_member` choices are built from project memberships; all include an NR choice.
+- Setup Form: default template changed to `rct_v2` (legacy `rct_v1` still available).
+- Setup Form now supports uploading a custom YAML template and downloading bundled templates (`rct_v1.yaml`, `rct_v2.yaml`) for reference.
+ - Added strict YAML validation for templates: verifies section/field structure, supported field types, and `options` schema for `select`/`select_member` fields with clear error messages on failure.
+
+### Seeding (Demo Data)
+- `make seed` now creates demo users and memberships for RBAC testing:
+  - Owner (admin): `owner@example.com` / `demo123`
+  - Member: `member@example.com` / `demo123`
+  - Adds both as project memberships to the "Demo SRMA" project; sets `Study.created_by` to the owner.
+- `make seed-clean` also removes project memberships while retaining user accounts.
 
 ---
 

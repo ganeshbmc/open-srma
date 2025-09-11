@@ -44,6 +44,29 @@
                                 <input class="form-control" type="number" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ existing_data[field.id] if field.id in existing_data else '' }}">
                             {% elif field.field_type == 'date' %}
                                 <input class="form-control" type="date" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ existing_data[field.id] if field.id in existing_data else '' }}">
+                            {% elif field.field_type == 'select' %}
+                                {% set opts = field.options | from_json if field.options else {} %}
+                                {% set choices = (opts.choices if opts and 'choices' in opts else []) %}
+                                {% set include_nr = (opts.include_nr if opts and 'include_nr' in opts else False) %}
+                                {% set current = existing_data[field.id] if field.id in existing_data else '' %}
+                                <select class="form-select" id="field_{{ field.id }}" name="field_{{ field.id }}">
+                                  <option value="">-- Select --</option>
+                                  {% for c in choices %}
+                                    <option value="{{ c }}" {{ 'selected' if current==c else '' }}>{{ c }}</option>
+                                  {% endfor %}
+                                  {% if include_nr %}
+                                    <option value="NR" {{ 'selected' if current=='NR' else '' }}>NR (Not reported)</option>
+                                  {% endif %}
+                                </select>
+                            {% elif field.field_type == 'select_member' %}
+                                {% set current = existing_data[field.id] if field.id in existing_data else '' %}
+                                <select class="form-select" id="field_{{ field.id }}" name="field_{{ field.id }}">
+                                  <option value="">-- Select --</option>
+                                  {% for m in member_display_choices %}
+                                    <option value="{{ m }}" {{ 'selected' if current==m else '' }}>{{ m }}</option>
+                                  {% endfor %}
+                                  <option value="NR" {{ 'selected' if current=='NR' else '' }}>NR (Not reported)</option>
+                                </select>
                             {% elif field.field_type == 'dichotomous_outcome' %}
                                 {# This field type is now deprecated for numerical outcomes, but kept for compatibility #}
                                 {% set value_data = existing_data[field.id] | from_json if field.id in existing_data and existing_data[field.id] else {'events': '', 'total': ''} %}

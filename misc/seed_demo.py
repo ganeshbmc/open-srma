@@ -7,11 +7,18 @@ from app.models import (
     StudyNumericalOutcome,
     ProjectOutcome,
     StudyContinuousOutcome,
+    User,
+    ProjectMembership,
 )
 import json
 
 
 PROJECT_NAME = "Demo SRMA"
+OWNER_EMAIL = "owner@example.com"
+OWNER_NAME = "Demo Owner"
+OWNER_PASSWORD = "demo123"
+MEMBER_EMAIL = "member@example.com"
+MEMBER_NAME = "Demo Member"
 
 
 def get_or_create_project(name: str, description: str = "Demo project for exports and data entry") -> Project:
@@ -22,6 +29,21 @@ def get_or_create_project(name: str, description: str = "Demo project for export
     db.session.add(proj)
     db.session.commit()
     return proj
+
+
+def get_or_create_user(email: str, name: str, password: str, is_admin: bool = False) -> User:
+    u = User.query.filter(db.func.lower(User.email) == (email or '').lower()).first()
+    if u:
+        # ensure admin flag aligns if passed
+        if is_admin and not u.is_admin:
+            u.is_admin = True
+            db.session.commit()
+        return u
+    u = User(email=email.strip().lower(), name=name.strip(), is_admin=is_admin)
+    u.set_password(password)
+    db.session.add(u)
+    db.session.commit()
+    return u
 
 
 def ensure_form_field(project_id: int, section: str, label: str, field_type: str, required: bool = False, help_text: str | None = None) -> CustomFormField:
@@ -71,7 +93,10 @@ def ensure_study(project: Project, title: str, author: str, year: int) -> Study:
     s = Study.query.filter_by(project_id=project.id, title=title).first()
     if s:
         return s
-    s = Study(title=title, author=author, year=year, project=project)
+    # default creator is the first owner membership, if any
+    owner_ms = ProjectMembership.query.filter_by(project_id=project.id, role='owner').first()
+    created_by = owner_ms.user_id if owner_ms else None
+    s = Study(title=title, author=author, year=year, project=project, created_by=created_by)
     db.session.add(s)
     db.session.commit()
     return s
@@ -92,6 +117,19 @@ def set_field_value(study: Study, field: CustomFormField, value_obj_or_str):
 
 def seed():
     project = get_or_create_project(PROJECT_NAME)
+
+    # Users and memberships
+    owner = get_or_create_user(OWNER_EMAIL, OWNER_NAME, OWNER_PASSWORD, is_admin=True)
+    member = get_or_create_user(MEMBER_EMAIL, MEMBER_NAME, OWNER_PASSWORD, is_admin=False)
+    # Owner membership
+    ms_owner = ProjectMembership.query.filter_by(user_id=owner.id, project_id=project.id).first()
+    if not ms_owner:
+        db.session.add(ProjectMembership(user_id=owner.id, project_id=project.id, role='owner', status='active'))
+    # Member membership
+    ms_member = ProjectMembership.query.filter_by(user_id=member.id, project_id=project.id).first()
+    if not ms_member:
+        db.session.add(ProjectMembership(user_id=member.id, project_id=project.id, role='member', status='active'))
+    db.session.commit()
 
     # Ensure a few baseline fields
     age_field = ensure_form_field(project.id, section="Participants", label="Age", field_type="baseline_continuous", help_text="Mean/SD by group")
@@ -129,9 +167,10 @@ def seed():
 
     db.session.commit()
     print(f"Seeded demo project '{project.name}' with 2 studies, baseline fields, and outcomes.")
+    print(f"Login as owner: {OWNER_EMAIL} / {OWNER_PASSWORD}")
+    print(f"Login as member: {MEMBER_EMAIL} / {OWNER_PASSWORD}")
 
 
 if __name__ == "__main__":
     with app.app_context():
         seed()
-

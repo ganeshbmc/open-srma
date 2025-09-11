@@ -43,6 +43,7 @@ class CustomFormField(db.Model):
     required = db.Column(db.Boolean, default=False, nullable=False)
     sort_order = db.Column(db.Integer, nullable=True)
     help_text = db.Column(db.Text, nullable=True)
+    options = db.Column(db.Text, nullable=True)  # JSON for select choices, etc.
 
     project = db.relationship('Project', backref=db.backref('form_fields', lazy='dynamic', cascade="all, delete-orphan"))
 

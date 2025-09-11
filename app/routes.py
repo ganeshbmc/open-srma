@@ -1,11 +1,12 @@
 import io # Import io for BytesIO
 import zipfile # Import zipfile
+import os
 from flask import render_template, flash, redirect, url_for, request, send_file, jsonify, abort # Import send_file, jsonify, abort
 from flask_login import current_user, login_user, logout_user, login_required
 from app import app, db
 from app.forms import ProjectForm, StudyForm, CustomFormFieldForm, OutcomeForm, RegisterForm, LoginForm, AddMemberForm
 from app.models import Project, Study, CustomFormField, StudyDataValue, StudyNumericalOutcome, ProjectOutcome, StudyContinuousOutcome, User, ProjectMembership, FormChangeRequest # Import new models
-from app.utils import load_template_and_create_form_fields # Import the new utility function
+from app.utils import load_template_and_create_form_fields, load_template_from_yaml_content # Import the new utility functions
 import json # Import json for handling dichotomous_outcome
 from pandas import DataFrame # Import pandas DataFrame
 
@@ -836,14 +837,42 @@ def setup_form(project_id):
     if request.method == 'POST':
         template_id = request.form.get('template_id')
         setup_mode = (request.form.get('setup_mode') or 'auto').lower()  # 'auto' | 'customize' | 'scratch'
+        uploaded = request.files.get('yaml_file')
 
         # Start from scratch ignores template selection
         if setup_mode == 'scratch':
             flash('Starting from scratch. Add sections and fields to build your form.')
             return redirect(url_for('list_form_fields', project_id=project.id))
 
+        # If a YAML file was uploaded, use it
+        if uploaded and (uploaded.filename or '').lower().endswith(('.yaml', '.yml')):
+            try:
+                yaml_text = uploaded.read().decode('utf-8')
+                existing_count = (
+                    db.session.query(db.func.count(CustomFormField.id))
+                    .filter_by(project_id=project.id)
+                    .scalar()
+                ) or 0
+                if existing_count > 0:
+                    if setup_mode == 'customize':
+                        flash('A data extraction form already exists for this project. Customize it below.')
+                        return redirect(url_for('list_form_fields', project_id=project.id))
+                    else:
+                        flash('A data extraction form already exists for this project.')
+                        return redirect(url_for('project_detail', project_id=project.id))
+                load_template_from_yaml_content(project.id, yaml_text)
+                if setup_mode == 'customize':
+                    flash('Form created from uploaded YAML. Customize it below.')
+                    return redirect(url_for('list_form_fields', project_id=project.id))
+                else:
+                    flash('Data extraction form generated from uploaded template!')
+                    return redirect(url_for('project_detail', project_id=project.id))
+            except Exception as e:
+                flash(f'Failed to load uploaded YAML: {e}', 'error')
+                return redirect(url_for('setup_form', project_id=project.id))
+
         # For auto/customize, a supported template must be chosen
-        if template_id == 'rct_v1':  # Only RCT template is supported for now
+        if template_id in ('rct_v2', 'rct_v1'):
             # Guard: if fields already exist, do not recreate from template
             existing_count = (
                 db.session.query(db.func.count(CustomFormField.id))
@@ -870,6 +899,19 @@ def setup_form(project_id):
         else:
             flash('Invalid template selected or template not yet supported.', 'error')
     return render_template('setup_form.html', project=project)
+
+
+@app.route('/templates/<template_id>.yaml')
+@login_required
+def download_template_yaml(template_id):
+    # Only allow known templates inside app/form_templates
+    allowed = {'rct_v1', 'rct_v2'}
+    if template_id not in allowed:
+        abort(404)
+    path = os.path.join(os.path.dirname(__file__), 'form_templates', f'{template_id}.yaml')
+    if not os.path.exists(path):
+        abort(404)
+    return send_file(path, as_attachment=True, download_name=f'{template_id}.yaml', mimetype='text/yaml')
 
 @app.route('/project/<int:project_id>/study/<int:study_id>/enter_data', methods=['GET', 'POST'])
 @login_required
@@ -1140,6 +1182,7 @@ def enter_data(project_id, study_id):
         existing_continuous_outcomes=existing_continuous_outcomes,
         role_label=role_label,
         is_owner_or_admin=is_owner_or_admin,
+        member_display_choices=[f"{ms.user.name} <{ms.user.email}>" for ms in project.memberships.join(User, User.id == ProjectMembership.user_id).order_by(User.name.asc()).all()],
     )
 
 

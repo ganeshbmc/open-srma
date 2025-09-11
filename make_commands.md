@@ -51,6 +51,9 @@ This project includes a Makefile to streamline common developer tasks. Below are
   - Alternative (from repo root, after activating venv):
     - macOS/Linux: `PYTHONPATH=. FLASK_APP=run.py python3 misc/seed_demo.py`
     - Windows PowerShell: `$env:PYTHONPATH='.'; $env:FLASK_APP='run.py'; python misc/seed_demo.py`
+  - Demo credentials (created by the seed script):
+    - Owner (admin): `owner@example.com` / `demo123`
+    - Member: `member@example.com` / `demo123`
 
 - seed-clean
   - Description: Remove the seeded demo project and its related data.

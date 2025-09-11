@@ -1,0 +1,135 @@
+# Base template for Randomized Controlled Trials (RCTs) — v2
+# Improves baseline per-arm fields and adds select/dropdown fields with NR option.
+
+template_name: "Randomized Controlled Trial (RCT) v2"
+template_id: "rct_v2"
+
+sections:
+  - section_name: "Study Identification"
+    fields:
+      - label: "Study ID"
+        field_type: "text"
+      - label: "Reference citation"
+        field_type: "textarea"
+      - label: "Country"
+        field_type: "text"
+      - label: "Assessor"
+        field_type: "select_member"
+        help: "Select the assessor from project members/owners; choose NR if not reported."
+        options:
+          roles: ["owner", "member"]
+          include_nr: true
+
+  - section_name: "Study Characteristics"
+    fields:
+      - label: "Study design"
+        field_type: "text"
+      - label: "Randomization type"
+        field_type: "select"
+        options:
+          choices: ["Simple", "Block", "Stratified", "Cluster", "Adaptive"]
+          include_nr: true
+      - label: "Unit of allocation"
+        field_type: "text"
+      - label: "Ethical approval obtained"
+        field_type: "select"
+        options:
+          choices: ["Yes", "No"]
+          include_nr: true
+      - label: "Start Date"
+        field_type: "date"
+      - label: "End Date"
+        field_type: "date"
+      - label: "Patient Blinding"
+        field_type: "select"
+        options:
+          choices: ["Yes", "No", "Partial"]
+          include_nr: true
+      - label: "Physician Blinding"
+        field_type: "select"
+        options:
+          choices: ["Yes", "No", "Partial"]
+          include_nr: true
+      - label: "Investigator Blinding"
+        field_type: "select"
+        options:
+          choices: ["Yes", "No", "Partial"]
+          include_nr: true
+      - label: "Outcome Assessor Blinding"
+        field_type: "select"
+        options:
+          choices: ["Yes", "No", "Partial"]
+          include_nr: true
+      - label: "Data Analyst Blinding"
+        field_type: "select"
+        options:
+          choices: ["Yes", "No", "Partial"]
+          include_nr: true
+
+  - section_name: "Participants"
+    fields:
+      - label: "Population description"
+        field_type: "textarea"
+      - label: "Setting"
+        field_type: "textarea"
+      - label: "Inclusion criteria"
+        field_type: "textarea"
+      - label: "Exclusion criteria"
+        field_type: "textarea"
+      - label: "Method of recruitment"
+        field_type: "text"
+      - label: "Total number randomised"
+        field_type: "integer"
+      - label: "Withdrawals and exclusions"
+        field_type: "textarea"
+
+  - section_name: "Intervention and Control Details"
+    fields:
+      - label: "Intervention Description"
+        field_type: "textarea"
+      - label: "Number in intervention group"
+        field_type: "integer"
+      - label: "Control Description"
+        field_type: "textarea"
+      - label: "Number in control group"
+        field_type: "integer"
+
+  - section_name: "Outcomes (Description)"
+    fields:
+      - label: "Primary Outcome(s)"
+        field_type: "textarea"
+      - label: "Secondary Outcome(s)"
+        field_type: "textarea"
+
+  - section_name: "Study Size & Analysis"
+    fields:
+      - label: "Sample Size Estimation"
+        field_type: "text"
+      - label: "Analysis Type (e.g., ITT)"
+        field_type: "text"
+      - label: "No. missing"
+        field_type: "integer"
+
+  - section_name: "Patient Baseline Characteristics"
+    fields:
+      - label: "Age"
+        field_type: "baseline_continuous"
+        help: "Record mean and SD separately for intervention and control arms"
+      - label: "Female (%)"
+        field_type: "baseline_categorical"
+        help: "Record percent female in each arm; choose NR if not reported"
+      - label: "BMI"
+        field_type: "baseline_continuous"
+      - label: "Baseline severity/score"
+        field_type: "baseline_continuous"
+
+  - section_name: "Procedural Details"
+    fields: []
+
+  - section_name: "Funding & Conflicts of Interest"
+    fields:
+      - label: "Funder"
+        field_type: "textarea"
+      - label: "Conflict of Interest"
+        field_type: "textarea"
+
