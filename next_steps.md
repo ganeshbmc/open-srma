@@ -7,6 +7,7 @@
 ## 11-09-2025
 - [x] Create user register/login, ability to add project (project admin/owner), ability to add members to the project who can add studies and enter data. See RBAC plan: [RBAC Rules and Workflow](RBAC_info.md)
 - [ ] Streamline data entry with dropdown based options wherever possible. To enable this, things can be set up at customize form stage itself.
+- [ ] Modify yaml template file
 - [ ] Validation
 - [ ] Testing
 - [ ] Dockerization

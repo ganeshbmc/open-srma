@@ -61,10 +61,6 @@ sections:
         field_type: "text"
       - label: "Total number randomised"
         field_type: "integer"
-      - label: "Age"
-        field_type: "text"
-      - label: "Sex"
-        field_type: "text"
       - label: "Withdrawals and exclusions"
         field_type: "textarea"
 
@@ -96,7 +92,19 @@ sections:
         field_type: "integer"
 
   - section_name: "Patient Baseline Characteristics"
-    fields: [] # Empty by default, customizable
+    fields:
+      - label: "Age"
+        field_type: "baseline_continuous"
+        help: "Record mean and SD separately for intervention and control arms"
+      - label: "Female (%)"
+        field_type: "baseline_categorical"
+        help: "Record percent female in each arm; leave blank if not reported"
+      - label: "BMI"
+        field_type: "baseline_continuous"
+        help: "Record mean and SD in each arm"
+      - label: "Baseline severity/score"
+        field_type: "baseline_continuous"
+        help: "Record key baseline scale (e.g., disease severity) mean and SD per arm"
 
   - section_name: "Procedural Details"
     fields: [] # Empty by default, customizable

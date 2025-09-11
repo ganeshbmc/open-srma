@@ -995,11 +995,7 @@ def enter_data(project_id, study_id):
                 db.session.add(data_value)
         
         # Save numerical outcomes (dichotomous)
-        # First, delete all existing numerical outcomes for this study to handle removals
-        StudyNumericalOutcome.query.filter_by(study_id=study.id).delete()
-        
-        # Iterate through submitted numerical outcome data
-        # We use outcome_row_index hidden fields to get all submitted row indices
+        # Gather submitted rows first; for members we will upsert per name
         outcome_indices = set()
         for index_str in request.form.getlist('outcome_row_index'):
             try:
@@ -1008,33 +1004,53 @@ def enter_data(project_id, study_id):
             except ValueError:
                 pass # Not a valid outcome index
 
-        # Predefined dichotomous outcome names for members
-        allowed_dich = set(
-            [ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='dichotomous').all() ]
-        )
+        submitted_dich = []
         for index in sorted(list(outcome_indices)):
-            outcome_name = request.form.get(f'outcome_name_{index}')
-            events_intervention = request.form.get(f'events_intervention_{index}', type=int)
-            total_intervention = request.form.get(f'total_intervention_{index}', type=int)
-            events_control = request.form.get(f'events_control_{index}', type=int)
-            total_control = request.form.get(f'total_control_{index}', type=int)
+            outcome_name = (request.form.get(f'outcome_name_{index}') or '').strip()
+            if not outcome_name:
+                continue
+            submitted_dich.append({
+                'name': outcome_name,
+                'ei': request.form.get(f'events_intervention_{index}', type=int),
+                'ti': request.form.get(f'total_intervention_{index}', type=int),
+                'ec': request.form.get(f'events_control_{index}', type=int),
+                'tc': request.form.get(f'total_control_{index}', type=int),
+            })
 
-            if outcome_name: # Only save if outcome name is provided
-                # Enforce predefined names for members
-                if not is_owner_or_admin and (outcome_name or '').strip().lower() not in allowed_dich:
-                    continue
-                numerical_outcome = StudyNumericalOutcome(
+        if is_owner_or_admin:
+            # Replace all for owners/admins
+            StudyNumericalOutcome.query.filter_by(study_id=study.id).delete()
+            for row in submitted_dich:
+                db.session.add(StudyNumericalOutcome(
                     study_id=study.id,
-                    outcome_name=outcome_name,
-                    events_intervention=events_intervention,
-                    total_intervention=total_intervention,
-                    events_control=events_control,
-                    total_control=total_control
-                )
-                db.session.add(numerical_outcome)
+                    outcome_name=row['name'],
+                    events_intervention=row['ei'],
+                    total_intervention=row['ti'],
+                    events_control=row['ec'],
+                    total_control=row['tc'],
+                ))
+        else:
+            # Upsert allowed rows; do not remove other existing outcomes
+            allowed_dich = set([ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='dichotomous').all() ])
+            names_to_apply = [r['name'] for r in submitted_dich if r['name'].lower() in allowed_dich]
+            if names_to_apply:
+                (StudyNumericalOutcome.query
+                    .filter_by(study_id=study.id)
+                    .filter(StudyNumericalOutcome.outcome_name.in_(names_to_apply))
+                    .delete(synchronize_session=False))
+                for row in submitted_dich:
+                    if row['name'].lower() not in allowed_dich:
+                        continue
+                    db.session.add(StudyNumericalOutcome(
+                        study_id=study.id,
+                        outcome_name=row['name'],
+                        events_intervention=row['ei'],
+                        total_intervention=row['ti'],
+                        events_control=row['ec'],
+                        total_control=row['tc'],
+                    ))
 
         # Save continuous outcomes
-        StudyContinuousOutcome.query.filter_by(study_id=study.id).delete()
         cont_indices = set()
         for index_str in request.form.getlist('cont_outcome_row_index'):
             try:
@@ -1055,11 +1071,9 @@ def enter_data(project_id, study_id):
                 return int(v)
             except (TypeError, ValueError):
                 return None
-        allowed_cont = set(
-            [ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='continuous').all() ]
-        )
+        submitted_cont = []
         for index in sorted(list(cont_indices)):
-            cname = request.form.get(f'cont_outcome_name_{index}')
+            cname = (request.form.get(f'cont_outcome_name_{index}') or '').strip()
             mi = to_float(request.form.get(f'cont_mean_intervention_{index}'))
             sdi = to_float(request.form.get(f'cont_sd_intervention_{index}'))
             ni = to_int(request.form.get(f'cont_n_intervention_{index}'))
@@ -1067,19 +1081,42 @@ def enter_data(project_id, study_id):
             sdc = to_float(request.form.get(f'cont_sd_control_{index}'))
             nc = to_int(request.form.get(f'cont_n_control_{index}'))
             if cname:
-                if not is_owner_or_admin and (cname or '').strip().lower() not in allowed_cont:
-                    continue
-                co = StudyContinuousOutcome(
+                submitted_cont.append({'name': cname, 'mi': mi, 'sdi': sdi, 'ni': ni, 'mc': mc, 'sdc': sdc, 'nc': nc})
+
+        if is_owner_or_admin:
+            StudyContinuousOutcome.query.filter_by(study_id=study.id).delete()
+            for row in submitted_cont:
+                db.session.add(StudyContinuousOutcome(
                     study_id=study.id,
-                    outcome_name=cname,
-                    mean_intervention=mi,
-                    sd_intervention=sdi,
-                    n_intervention=ni,
-                    mean_control=mc,
-                    sd_control=sdc,
-                    n_control=nc,
-                )
-                db.session.add(co)
+                    outcome_name=row['name'],
+                    mean_intervention=row['mi'],
+                    sd_intervention=row['sdi'],
+                    n_intervention=row['ni'],
+                    mean_control=row['mc'],
+                    sd_control=row['sdc'],
+                    n_control=row['nc'],
+                ))
+        else:
+            allowed_cont = set([ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='continuous').all() ])
+            names_to_apply_c = [r['name'] for r in submitted_cont if r['name'].lower() in allowed_cont]
+            if names_to_apply_c:
+                (StudyContinuousOutcome.query
+                    .filter_by(study_id=study.id)
+                    .filter(StudyContinuousOutcome.outcome_name.in_(names_to_apply_c))
+                    .delete(synchronize_session=False))
+                for row in submitted_cont:
+                    if row['name'].lower() not in allowed_cont:
+                        continue
+                    db.session.add(StudyContinuousOutcome(
+                        study_id=study.id,
+                        outcome_name=row['name'],
+                        mean_intervention=row['mi'],
+                        sd_intervention=row['sdi'],
+                        n_intervention=row['ni'],
+                        mean_control=row['mc'],
+                        sd_control=row['sdc'],
+                        n_control=row['nc'],
+                    ))
 
         db.session.commit()
         flash('Study data saved successfully!')
@@ -1120,18 +1157,23 @@ def autosave_study_data(project_id, study_id):
 
     try:
         if section == 'numerical_outcomes':
-            # Replace all numerical outcomes for this study with provided rows
-            StudyNumericalOutcome.query.filter_by(study_id=study.id).delete()
             rows = data.get('numerical_outcomes') or []
             ms = get_membership_for(project.id)
             is_owner_or_admin = bool(is_admin() or (ms and (ms.role or '').lower() == 'owner'))
             allowed = set([ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='dichotomous').all() ])
-            for row in rows:
-                outcome_name = (row.get('outcome_name') or '').strip()
-                if not outcome_name:
-                    continue
-                if not is_owner_or_admin and outcome_name.lower() not in allowed:
-                    return jsonify({'ok': False, 'error': f'Unauthorized outcome name: {outcome_name}'}), 400
+            # Validate first for members
+            if not is_owner_or_admin:
+                for row in rows:
+                    name = (row.get('outcome_name') or '').strip()
+                    if name and name.lower() not in allowed:
+                        return jsonify({'ok': False, 'error': f'Unauthorized outcome name: {name}'}), 400
+                # Upsert by names provided; preserve others
+                names = [ (row.get('outcome_name') or '').strip() for row in rows if (row.get('outcome_name') or '').strip() ]
+                if names:
+                    (StudyNumericalOutcome.query
+                        .filter_by(study_id=study.id)
+                        .filter(StudyNumericalOutcome.outcome_name.in_(names))
+                        .delete(synchronize_session=False))
                 def to_int(v):
                     if v is None or v == '':
                         return None
@@ -1139,21 +1181,44 @@ def autosave_study_data(project_id, study_id):
                         return int(v)
                     except (TypeError, ValueError):
                         return None
-                numerical_outcome = StudyNumericalOutcome(
-                    study_id=study.id,
-                    outcome_name=outcome_name,
-                    events_intervention=to_int(row.get('events_intervention')),
-                    total_intervention=to_int(row.get('total_intervention')),
-                    events_control=to_int(row.get('events_control')),
-                    total_control=to_int(row.get('total_control')),
-                )
-                db.session.add(numerical_outcome)
+                for row in rows:
+                    name = (row.get('outcome_name') or '').strip()
+                    if not name:
+                        continue
+                    db.session.add(StudyNumericalOutcome(
+                        study_id=study.id,
+                        outcome_name=name,
+                        events_intervention=to_int(row.get('events_intervention')),
+                        total_intervention=to_int(row.get('total_intervention')),
+                        events_control=to_int(row.get('events_control')),
+                        total_control=to_int(row.get('total_control')),
+                    ))
+            else:
+                # Owners/admins replace all rows
+                StudyNumericalOutcome.query.filter_by(study_id=study.id).delete()
+                def to_int(v):
+                    if v is None or v == '':
+                        return None
+                    try:
+                        return int(v)
+                    except (TypeError, ValueError):
+                        return None
+                for row in rows:
+                    name = (row.get('outcome_name') or '').strip()
+                    if not name:
+                        continue
+                    db.session.add(StudyNumericalOutcome(
+                        study_id=study.id,
+                        outcome_name=name,
+                        events_intervention=to_int(row.get('events_intervention')),
+                        total_intervention=to_int(row.get('total_intervention')),
+                        events_control=to_int(row.get('events_control')),
+                        total_control=to_int(row.get('total_control')),
+                    ))
             db.session.commit()
             return jsonify({'ok': True})
 
         if section == 'continuous_outcomes':
-            # Replace all continuous outcomes for this study with provided rows
-            StudyContinuousOutcome.query.filter_by(study_id=study.id).delete()
             rows = data.get('continuous_outcomes') or []
             ms = get_membership_for(project.id)
             is_owner_or_admin = bool(is_admin() or (ms and (ms.role or '').lower() == 'owner'))
@@ -1172,23 +1237,47 @@ def autosave_study_data(project_id, study_id):
                     return int(v)
                 except (TypeError, ValueError):
                     return None
-            for row in rows:
-                outcome_name = (row.get('outcome_name') or '').strip()
-                if not outcome_name:
-                    continue
-                if not is_owner_or_admin and outcome_name.lower() not in allowed:
-                    return jsonify({'ok': False, 'error': f'Unauthorized outcome name: {outcome_name}'}), 400
-                co = StudyContinuousOutcome(
-                    study_id=study.id,
-                    outcome_name=outcome_name,
-                    mean_intervention=to_float(row.get('mean_intervention')),
-                    sd_intervention=to_float(row.get('sd_intervention')),
-                    n_intervention=to_int(row.get('n_intervention')),
-                    mean_control=to_float(row.get('mean_control')),
-                    sd_control=to_float(row.get('sd_control')),
-                    n_control=to_int(row.get('n_control')),
-                )
-                db.session.add(co)
+            if not is_owner_or_admin:
+                for row in rows:
+                    name = (row.get('outcome_name') or '').strip()
+                    if name and name.lower() not in allowed:
+                        return jsonify({'ok': False, 'error': f'Unauthorized outcome name: {name}'}), 400
+                names = [ (row.get('outcome_name') or '').strip() for row in rows if (row.get('outcome_name') or '').strip() ]
+                if names:
+                    (StudyContinuousOutcome.query
+                        .filter_by(study_id=study.id)
+                        .filter(StudyContinuousOutcome.outcome_name.in_(names))
+                        .delete(synchronize_session=False))
+                for row in rows:
+                    name = (row.get('outcome_name') or '').strip()
+                    if not name:
+                        continue
+                    db.session.add(StudyContinuousOutcome(
+                        study_id=study.id,
+                        outcome_name=name,
+                        mean_intervention=to_float(row.get('mean_intervention')),
+                        sd_intervention=to_float(row.get('sd_intervention')),
+                        n_intervention=to_int(row.get('n_intervention')),
+                        mean_control=to_float(row.get('mean_control')),
+                        sd_control=to_float(row.get('sd_control')),
+                        n_control=to_int(row.get('n_control')),
+                    ))
+            else:
+                StudyContinuousOutcome.query.filter_by(study_id=study.id).delete()
+                for row in rows:
+                    name = (row.get('outcome_name') or '').strip()
+                    if not name:
+                        continue
+                    db.session.add(StudyContinuousOutcome(
+                        study_id=study.id,
+                        outcome_name=name,
+                        mean_intervention=to_float(row.get('mean_intervention')),
+                        sd_intervention=to_float(row.get('sd_intervention')),
+                        n_intervention=to_int(row.get('n_intervention')),
+                        mean_control=to_float(row.get('mean_control')),
+                        sd_control=to_float(row.get('sd_control')),
+                        n_control=to_int(row.get('n_control')),
+                    ))
             db.session.commit()
             return jsonify({'ok': True})
 

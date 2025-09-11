@@ -538,11 +538,15 @@
             // Use event delegation for the add button
             document.addEventListener('click', function(event) {
                 if (event.target && event.target.id === 'add-numerical-outcome-btn') {
+                    event.preventDefault();
+                    event.stopPropagation();
                     addNumericalOutcome();
                     // schedule autosave for numerical outcomes after adding a row
                     scheduleAutosave('numerical_outcomes', 'numerical_outcomes');
                 }
                 if (event.target && event.target.id === 'add-predefined-outcome-btn') {
+                    event.preventDefault();
+                    event.stopPropagation();
                     const sel = document.getElementById('predefined_outcome');
                     const name = sel ? (sel.value || '').trim() : '';
                     if (name) {
@@ -563,6 +567,8 @@
                     }
                 }
                 if (event.target && event.target.id === 'add-all-predefined-outcome-btn') {
+                    event.preventDefault();
+                    event.stopPropagation();
                     const sel = document.getElementById('predefined_outcome');
                     const options = sel ? Array.from(sel.options).map(o => (o.value || '').trim()).filter(Boolean) : [];
                     const existing = new Set(Array.from(document.querySelectorAll('#numerical-outcomes-tbody input[id^="outcome_name_"]')).map(el => (el.value || '').trim().toLowerCase()));
@@ -587,10 +593,14 @@
                     }
                 }
                 if (event.target && event.target.id === 'add-continuous-outcome-btn') {
+                    event.preventDefault();
+                    event.stopPropagation();
                     addContinuousOutcome();
                     scheduleAutosave('continuous_outcomes', 'continuous_outcomes');
                 }
                 if (event.target && event.target.id === 'add-predefined-cont-outcome-btn') {
+                    event.preventDefault();
+                    event.stopPropagation();
                     const sel = document.getElementById('predefined_cont_outcome');
                     const name = sel ? (sel.value || '').trim() : '';
                     if (name) {
@@ -611,6 +621,8 @@
                     }
                 }
                 if (event.target && event.target.id === 'add-all-predefined-cont-outcome-btn') {
+                    event.preventDefault();
+                    event.stopPropagation();
                     const sel = document.getElementById('predefined_cont_outcome');
                     const options = sel ? Array.from(sel.options).map(o => (o.value || '').trim()).filter(Boolean) : [];
                     const existing = new Set(Array.from(document.querySelectorAll('#continuous-outcomes-tbody input[id^="cont_outcome_name_"]')).map(el => (el.value || '').trim().toLowerCase()));
@@ -635,6 +647,8 @@
                     }
                 }
                 if (event.target && event.target.classList.contains('save-section-btn')) {
+                    event.preventDefault();
+                    event.stopPropagation();
                     const sectionId = event.target.getAttribute('data-section-id');
                     const sectionName = event.target.getAttribute('data-section-name');
                     autosaveSection(sectionId, sectionName);

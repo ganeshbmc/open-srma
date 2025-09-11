@@ -5,6 +5,11 @@ This session adds robust export features (CSV/Excel and zipped per‑outcome fil
 
 ## Details
 
+### Breaking Changes
+- Login required for all project/study routes (RBAC introduced).
+- Excel static export removed; static export is now CSV-only.
+- Outcomes export route renamed to `export_outcomes` (old `export_jamovi` kept as alias).
+
 ### Exports
 - New static fields export for a project:
   - Route: `GET /project/<id>/export_static?format=csv|xlsx`.
@@ -100,6 +105,13 @@ This session adds robust export features (CSV/Excel and zipped per‑outcome fil
     - `POST /project/<id>/form_sections/<section>/move_down`
   - Helpers `_normalize_section_orders` and `_move_section` update `section_order` across the section.
 
+### RCT Template Refinement
+- Updated `app/form_templates/rct_v1.yaml` to model baseline characteristics per arm:
+  - Moved `Age` from Participants to Patient Baseline Characteristics and changed to `baseline_continuous` (mean/SD per arm).
+  - Added `Female (%)` as `baseline_categorical` (percent per arm).
+  - Added common baseline continuous fields such as `BMI` and a generic `Baseline severity/score` as `baseline_continuous`.
+- App already supports these types in data entry and exports; no code changes required beyond YAML import (help texts are stored).
+
 ---
 
 ## RBAC and Access Control (2025-09-11)
@@ -134,12 +146,14 @@ This session adds robust export features (CSV/Excel and zipped per‑outcome fil
 - Change requests (Owner/Admin):
   - `GET /project/<id>/requests` (list)
   - `POST /project/<id>/requests/<req_id>/approve|reject`
+  - Resolved requests now hide action buttons (UI shows a "Resolved" badge).
 
 ### Form/Outcome Change Proposals
 - Members proposing add/edit/delete field, move up/down, add/delete outcome now create `FormChangeRequest` instead of applying immediately.
 - Owners/Admins still apply changes immediately.
 - Approval application implemented for: `add_field`, `edit_field`, `delete_field`, `add_outcome`, `delete_outcome`.
 - Reorder (`reorder_field`, `reorder_section`) is captured but not auto‑applied yet (owner can reorder directly). Future work: apply on approve.
+ - Members can include a reason when proposing: add/edit/delete field, add/delete outcome, and reorder field/section. Reasons are displayed to owners on the Requests page.
 
 ### Route Guards
 - Project pages, enter data, exports: require membership.
@@ -158,6 +172,17 @@ This session adds robust export features (CSV/Excel and zipped per‑outcome fil
 - Role badges (Admin/Owner/Member) surfaced on:
   - Project list, Project detail, Customize Form, and Enter Data pages.
 - Pending requests badges on Project detail and Customize Form.
+ - Project detail export actions consolidated into an "Export" dropdown; Excel option removed.
+
+### Exports (Naming/Routes)
+- Outcomes export endpoint renamed to `export_outcomes`; kept `export_jamovi` as a backward‑compatible alias.
+- Internal variable names standardized (`outcome_columns`).
+
+### Enter Data: RBAC Enforcement & UX
+- Members cannot add free‑form outcome rows; they can only insert predefined outcomes (owners/admins retain full controls).
+- Server‑side enforcement for members: only predefined outcome names are accepted for saves/autosaves.
+- Bugfix: Saving outcomes as a member no longer deletes unrelated existing outcomes. We now upsert per outcome name for members (delete/replace only the submitted predefined names); owners/admins still replace all rows.
+- Prevented unintended form submissions/scroll jumps by canceling default actions on outcome add/save buttons.
 
 ### Documentation
 - Added `RBAC_info.md` detailing roles, permissions, workflows, and payload shapes.
