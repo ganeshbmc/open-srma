@@ -1,14 +1,19 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from flask_wtf import CSRFProtect
 import json # Import json
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'a-secret-key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///srma.db'
+# Ensure instance folder exists and store DB there
+os.makedirs(app.instance_path, exist_ok=True)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'srma.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+csrf = CSRFProtect(app)
 
 # Custom Jinja2 filter to parse JSON
 def from_json(value):
@@ -21,6 +26,6 @@ def to_json(value):
     return json.dumps(value)
 
 app.jinja_env.filters['from_json'] = from_json
-app.jinja_env.filters['tojson'] = to_json # Add tojson filter
+# Use Jinja's built-in `tojson` filter; avoid overriding it
 
 from app import routes, models

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>{{ 'Add Field' if mode == 'add' else 'Edit Field' }} — {{ project.name }}</h1>
+
+  <form method="POST" id="edit-field-form">
+    {{ form.hidden_tag() }}
+    {# Section selector with existing sections and option to add new #}
+    <div class="mb-3">
+      <label class="form-label">Section</label>
+      {% set current_section = form.section.data or '' %}
+      {% set has_current = sections and (current_section in sections) %}
+      <select class="form-select" id="section_choice" name="section_choice">
+        {% if sections and sections|length > 0 %}
+          {% for s in sections %}
+            <option value="{{ s }}" {{ 'selected' if has_current and s == current_section else '' }}>{{ s }}</option>
+          {% endfor %}
+        {% endif %}
+        <option value="__new__" {{ 'selected' if not has_current else '' }}>Add new section…</option>
+      </select>
+      <div class="mt-2" id="section_new_group">
+        <input type="text" class="form-control" id="section_new" name="section_new" placeholder="Enter new section name" value="{{ '' if has_current else current_section }}">
+      </div>
+      {# Keep the real WTForms field hidden; it will be set by JS on submit #}
+      {{ form.section(type='hidden', id='section_hidden') }}
+    </div>
+    <div class="mb-3">
+      {{ form.label.label(class="form-label") }}
+      {{ form.label(class="form-control") }}
+    </div>
+    <div class="mb-3">
+      {{ form.help_text.label(class="form-label") }}
+      {{ form.help_text(class="form-control", rows=2) }}
+      {% if form.help_text.description %}
+        <div class="form-text">{{ form.help_text.description }}</div>
+      {% endif %}
+    </div>
+    <div class="mb-3">
+      {{ form.field_type.label(class="form-label") }}
+      {{ form.field_type(class="form-select") }}
+    </div>
+    <div class="form-check mb-3">
+      {{ form.required(class="form-check-input", id="requiredCheck") }}
+      <label class="form-check-label" for="requiredCheck">Required</label>
+    </div>
+    {{ form.submit(class="btn btn-primary") }}
+    <a class="btn btn-secondary" href="{{ url_for('list_form_fields', project_id=project.id) }}">Cancel</a>
+  </form>
+
+  <script>
+    (function() {
+      const choice = document.getElementById('section_choice');
+      const newGroup = document.getElementById('section_new_group');
+      const newInput = document.getElementById('section_new');
+      const hidden = document.getElementById('section_hidden');
+      function syncVisibility() {
+        const isNew = choice.value === '__new__';
+        newGroup.style.display = isNew ? '' : 'none';
+      }
+      function syncHidden() {
+        const isNew = choice.value === '__new__';
+        hidden.value = isNew ? (newInput.value || '').trim() : choice.value;
+      }
+      if (choice && newGroup && newInput && hidden) {
+        syncVisibility();
+        syncHidden();
+        choice.addEventListener('change', function() {
+          syncVisibility();
+          syncHidden();
+        });
+        newInput.addEventListener('input', syncHidden);
+        const form = document.getElementById('edit-field-form');
+        if (form) {
+          form.addEventListener('submit', function() {
+            syncHidden();
+          });
+        }
+      }
+    })();
+  </script>
+{% endblock %}

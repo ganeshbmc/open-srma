@@ -2,23 +2,44 @@
 
 {% block content %}
     <div class="card mt-4">
-        <div class="card-header">
-            <h1>Setup Data Extraction Form for {{ project.name }}</h1>
-        </div>
-        <div class="card-body">
-            <p>Please select a template to generate your data extraction form. You can customize it later.</p>
+      <div class="card-header">
+        <h1>Setup Data Extraction Form for {{ project.name }}</h1>
+      </div>
+      <div class="card-body">
+        <form method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-            <form method="POST">
-                <div class="mb-3"> {# Added mb-3 for spacing #}
-                    <label for="template_id" class="form-label">Choose a template:</label> {# Added form-label class #}
-                    <select class="form-select" id="template_id" name="template_id"> {# Changed form-control to form-select for dropdowns #}
-                        <option value="rct_v1">Randomized Controlled Trial (RCT)</option>
-                        <option value="non_rct_v1" disabled>Non-Randomized Study (Coming Soon)</option>
-                        <option value="scratch" disabled>Start from scratch (Coming Soon)</option>
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-primary">Generate Form</button>
-            </form>
-        </div>
+          <div class="mb-3">
+            <label for="template_id" class="form-label">Choose SRMA type (template):</label>
+            <select class="form-select" id="template_id" name="template_id">
+              <option value="rct_v1">Randomized Controlled Trial (RCT)</option>
+              <option value="non_rct_v1" disabled>Non-Randomized Study (Coming Soon)</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">How would you like to proceed?</label>
+            <div class="list-group">
+              <label class="list-group-item">
+                <input class="form-check-input me-2" type="radio" name="setup_mode" value="auto" checked>
+                Auto-create a base data extraction form (can be modified later)
+              </label>
+              <label class="list-group-item">
+                <input class="form-check-input me-2" type="radio" name="setup_mode" value="customize">
+                Customize now (review and edit the base form before proceeding)
+              </label>
+              <label class="list-group-item">
+                <input class="form-check-input me-2" type="radio" name="setup_mode" value="scratch">
+                Start from scratch (empty form; add sections and fields yourself)
+              </label>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Continue</button>
+            <a href="{{ url_for('project_detail', project_id=project.id) }}" class="btn btn-secondary">Skip for now</a>
+          </div>
+        </form>
+      </div>
     </div>
 {% endblock %}

@@ -1,11 +1,23 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Projects</h1>
-    <ul>
-        {% for project in projects %}
-        <li><a href="{{ url_for('project_detail', project_id=project.id) }}">{{ project.name }}</a></li>
-        {% endfor %}
-    </ul>
-    <a href="{{ url_for('add_project') }}">Add Project</a>
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h1 class="mb-0">Projects</h1>
+      <a href="{{ url_for('add_project') }}" class="btn btn-primary">Add Project</a>
+    </div>
+
+    {% if projects %}
+      <div class="card">
+        <div class="list-group list-group-flush">
+          {% for project in projects %}
+            <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="{{ url_for('project_detail', project_id=project.id) }}">
+              <span>{{ project.name }}</span>
+              <span class="text-muted small">View</span>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% else %}
+      <div class="alert alert-secondary">No projects yet. Create your first project.</div>
+    {% endif %}
 {% endblock %}
