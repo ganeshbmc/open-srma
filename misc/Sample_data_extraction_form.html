@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Extraction Form</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .card { margin-bottom: 1.5rem; }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="text-center mb-4">
+            <h1>Data Extraction Form</h1>
+            <p class="lead">A user-friendly form to add a new study to the Excel file.</p>
+        </div>
+        
+        <form action="/submit" method="post">
+            
+            <!-- Study Identifiers -->
+            <div class="card">
+                <div class="card-header"><h4>Study Identifiers & Assessors</h4></div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3"><label for="Study ID" class="form-label">Study ID (Author_Year)</label><input type="text" class="form-control" id="Study ID" name="Study ID" required></div>
+                        <div class="col-md-4 mb-3"><label for="Country" class="form-label">Country</label><input type="text" class="form-control" id="Country" name="Country"></div>
+                        <div class="col-md-4 mb-3"><label for="Author email" class="form-label">Author Email</label><input type="email" class="form-control" id="Author email" name="Author email"></div>
+                        <div class="col-md-3 mb-3"><label for="Assessor_1" class="form-label">Assessor 1</label><input type="text" class="form-control" id="Assessor_1" name="Assessor_1"></div>
+                        <div class="col-md-3 mb-3"><label for="Assessor_2" class="form-label">Assessor 2</label><input type="text" class="form-control" id="Assessor_2" name="Assessor_2"></div>
+                        <div class="col-md-3 mb-3"><label for="Assessor_3" class="form-label">Assessor 3</label><input type="text" class="form-control" id="Assessor_3" name="Assessor_3"></div>
+                        <div class="col-md-3 mb-3"><label for="Assessed date" class="form-label">Assessed Date</label><input type="date" class="form-control" id="Assessed date" name="Assessed date"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Study Design -->
+            <div class="card">
+                <div class="card-header"><h4>Study Design & Blinding</h4></div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3"><label for="Unit of Randomization" class="form-label">Unit of Randomization</label><input type="text" class="form-control" id="Unit of Randomization" name="Unit of Randomization"></div>
+                        <div class="col-md-4 mb-3"><label for="Randomization type" class="form-label">Randomization Type</label><input type="text" class="form-control" id="Randomization type" name="Randomization type"></div>
+                        <div class="col-md-4 mb-3"><label for="Setting" class="form-label">Setting</label><input type="text" class="form-control" id="Setting" name="Setting"></div>
+                        <div class="col-md-6 mb-3"><label for="Start date" class="form-label">Start Date</label><input type="date" class="form-control" id="Start date" name="Start date"></div>
+                        <div class="col-md-6 mb-3"><label for="End date" class="form-label">End Date</label><input type="date" class="form-control" id="End date" name="End date"></div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 mb-3"><label for="Patient_Blinding" class="form-label">Patient Blinding</label><input type="text" class="form-control" id="Patient_Blinding" name="Patient_Blinding"></div>
+                        <div class="col-md-3 mb-3"><label for="Physician_Blinding" class="form-label">Physician Blinding</label><input type="text" class="form-control" id="Physician_Blinding" name="Physician_Blinding"></div>
+                        <div class="col-md-3 mb-3"><label for="Investigator_Blinding" class="form-label">Investigator Blinding</label><input type="text" class="form-control" id="Investigator_Blinding" name="Investigator_Blinding"></div>
+                        <div class="col-md-3 mb-3"><label for="OutcomeAssessor_Blinding" class="form-label">Outcome Assessor Blinding</label><input type="text" class="form-control" id="OutcomeAssessor_Blinding" name="OutcomeAssessor_Blinding"></div>
+                        <div class="col-md-3 mb-3"><label for="DataAnalyst_Blinding" class="form-label">Data Analyst Blinding</label><input type="text" class="form-control" id="DataAnalyst_Blinding" name="DataAnalyst_Blinding"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Population & Criteria -->
+            <div class="card">
+                <div class="card-header"><h4>Population & Criteria</h4></div>
+                <div class="card-body">
+                    <div class="mb-3"><label for="Population" class="form-label">Population</label><textarea class="form-control" id="Population" name="Population" rows="2"></textarea></div>
+                    <div class="mb-3"><label for="Inclusion criteria" class="form-label">Inclusion Criteria</label><textarea class="form-control" id="Inclusion criteria" name="Inclusion criteria" rows="3"></textarea></div>
+                    <div class="mb-3"><label for="Exclusion criteria" class="form-label">Exclusion Criteria</label><textarea class="form-control" id="Exclusion criteria" name="Exclusion criteria" rows="3"></textarea></div>
+                </div>
+            </div>
+
+            <!-- Intervention Details -->
+            <div class="card">
+                <div class="card-header"><h4>Intervention Details</h4></div>
+                <div class="card-body">
+                    <div class="mb-3"><label for="RIPC_Description" class="form-label">RIPC Description</label><textarea class="form-control" id="RIPC_Description" name="RIPC_Description" rows="3"></textarea></div>
+                    <div class="mb-3"><label for="Sham/Control_Description" class="form-label">Sham/Control Description</label><textarea class="form-control" id="Sham/Control_Description" name="Sham/Control_Description" rows="3"></textarea></div>
+                    <div class="mb-3"><label for="RIPC/Sham_to_CAG/PCI_Time_Gap" class="form-label">Time Gap (RIPC/Sham to CAG/PCI)</label><input type="text" class="form-control" id="RIPC/Sham_to_CAG/PCI_Time_Gap" name="RIPC/Sham_to_CAG/PCI_Time_Gap"></div>
+                </div>
+            </div>
+
+            <!-- Outcomes -->
+            <div class="card">
+                <div class="card-header"><h4>Outcomes</h4></div>
+                <div class="card-body">
+                    <div class="mb-3"><label for="Primary_Outcome" class="form-label">Primary Outcome(s)</label><textarea class="form-control" id="Primary_Outcome" name="Primary_Outcome" rows="2"></textarea></div>
+                    <div class="mb-3"><label for="Secondary_Outcomes" class="form-label">Secondary Outcome(s)</label><textarea class="form-control" id="Secondary_Outcomes" name="Secondary_Outcomes" rows="2"></textarea></div>
+                    <div class="mb-3"><label for="CA_AKI_Definition" class="form-label">CA-AKI Definition</label><textarea class="form-control" id="CA_AKI_Definition" name="CA_AKI_Definition" rows="2"></textarea></div>
+                    <div class="mb-3"><label for="CA_AKI_Prophylactic_Measures" class="form-label">CA-AKI Prophylactic Measures</label><textarea class="form-control" id="CA_AKI_Prophylactic_Measures" name="CA_AKI_Prophylactic_Measures" rows="2"></textarea></div>
+                </div>
+            </div>
+
+            <!-- Study Size & Analysis -->
+            <div class="card">
+                <div class="card-header"><h4>Study Size & Analysis</h4></div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3"><label for="Sample_Size_Estimation" class="form-label">Sample Size Estimation</label><input type="text" class="form-control" id="Sample_Size_Estimation" name="Sample_Size_Estimation"></div>
+                        <div class="col-md-4 mb-3"><label for="Analysis_type" class="form-label">Analysis Type (e.g., ITT)</label><input type="text" class="form-control" id="Analysis_type" name="Analysis_type"></div>
+                        <div class="col-md-4 mb-3"><label for="Total randomized" class="form-label">Total Randomized</label><input type="number" class="form-control" id="Total randomized" name="Total randomized"></div>
+                        <div class="col-md-4 mb-3"><label for="No. intervention group" class="form-label">No. Intervention Group</label><input type="number" class="form-control" id="No. intervention group" name="No. intervention group"></div>
+                        <div class="col-md-4 mb-3"><label for="No. control group" class="form-label">No. Control Group</label><input type="number" class="form-control" id="No. control group" name="No. control group"></div>
+                        <div class="col-md-4 mb-3"><label for="No. missing" class="form-label">No. Missing</label><input type="number" class="form-control" id="No. missing" name="No. missing"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Patient Baseline Characteristics -->
+            <div class="card">
+                <div class="card-header"><h4>Patient Baseline Characteristics</h4></div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-3"><label for="Age" class="form-label">Age</label><input type="text" class="form-control" id="Age" name="Age"></div>
+                        <div class="col-md-3 mb-3"><label for="Male" class="form-label">Male (%)</label><input type="text" class="form-control" id="Male" name="Male"></div>
+                        <div class="col-md-3 mb-3"><label for="Diabetes" class="form-label">Diabetes (%)</label><input type="text" class="form-control" id="Diabetes" name="Diabetes"></div>
+                        <div class="col-md-3 mb-3"><label for="CKD" class="form-label">CKD (%)</label><input type="text" class="form-control" id="CKD" name="CKD"></div>
+                        <div class="col-md-3 mb-3"><label for="eGFR" class="form-label">eGFR</label><input type="text" class="form-control" id="eGFR" name="eGFR"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Procedural Details -->
+            <div class="card">
+                <div class="card-header"><h4>Procedural Details</h4></div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-3"><label for="PCI" class="form-label">PCI (%)</label><input type="text" class="form-control" id="PCI" name="PCI"></div>
+                        <div class="col-md-3 mb-3"><label for="STEMI" class="form-label">STEMI (%)</label><input type="text" class="form-control" id="STEMI" name="STEMI"></div>
+                        <div class="col-md-3 mb-3"><label for="Primary PCI" class="form-label">Primary PCI (%)</label><input type="text" class="form-control" id="Primary PCI" name="Primary PCI"></div>
+                        <div class="col-md-3 mb-3"><label for="Cardiogenic shock" class="form-label">Cardiogenic Shock (%)</label><input type="text" class="form-control" id="Cardiogenic shock" name="Cardiogenic shock"></div>
+                        <div class="col-md-4 mb-3"><label for="Contrast_Agent_Type" class="form-label">Contrast Agent Type</label><input type="text" class="form-control" id="Contrast_Agent_Type" name="Contrast_Agent_Type"></div>
+                        <div class="col-md-4 mb-3"><label for="Contrast volume" class="form-label">Contrast Volume</label><input type="text" class="form-control" id="Contrast volume" name="Contrast volume"></div>
+                        <div class="col-md-4 mb-3"><label for="Mehran score" class="form-label">Mehran Score</label><input type="text" class="form-control" id="Mehran score" name="Mehran score"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Funding -->
+            <div class="card">
+                <div class="card-header"><h4>Funding & Conflicts of Interest</h4></div>
+                <div class="card-body">
+                    <div class="mb-3"><label for="Funder" class="form-label">Funder</label><textarea class="form-control" id="Funder" name="Funder" rows="2"></textarea></div>
+                    <div class="mb-3"><label for="Conflict_of_Interest" class="form-label">Conflict of Interest</label><textarea class="form-control" id="Conflict_of_Interest" name="Conflict_of_Interest" rows="2"></textarea></div>
+                </div>
+            </div>
+
+            <!-- Numerical Outcomes Section -->
+            <div class="card">
+                <div class="card-header"><h4>Numerical Outcomes Data</h4></div>
+                <div class="card-body">
+                    <div id="outcomes-container">
+                        <!-- JS will populate this -->
+                    </div>
+                    <button type="button" class="btn btn-secondary mt-2" id="add-outcome-btn">Add Outcome Row</button>
+                </div>
+            </div>
+            
+            <hr class="my-4">
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary btn-lg">Submit All Data</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const outcomes = [
+            "CA_AKI", "Need for HD", "In-hospital allcause mortality", 
+            "In-hospital MACE", "30-day Mortality", "30-day MACE", 
+            "MAKE30", "SAE"
+        ];
+
+        let outcomeCount = 0;
+
+        function addOutcome() {
+            outcomeCount++;
+            const container = document.getElementById('outcomes-container');
+            const outcomeDiv = document.createElement('div');
+            outcomeDiv.classList.add('outcome-entry', 'p-3', 'mb-3', 'border', 'rounded');
+            outcomeDiv.setAttribute('id', `outcome-row-${outcomeCount}`);
+            
+            outcomeDiv.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5>Outcome Entry #${outcomeCount}</h5>
+                    <button type="button" class="btn-close" aria-label="Close" onclick="removeOutcome(${outcomeCount})"></button>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="outcome_name_${outcomeCount}" class="form-label">Outcome Type</label>
+                        <select class="form-select" id="outcome_name_${outcomeCount}" name="outcome_name_${outcomeCount}">
+                            <option selected disabled>Choose...</option>
+                            ${outcomes.map(o => `<option value="${o}">${o}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label for="events_ripc_${outcomeCount}" class="form-label">Events (Intervention)</label>
+                        <input type="number" class="form-control" id="events_ripc_${outcomeCount}" name="events_ripc_${outcomeCount}">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="total_ripc_${outcomeCount}" class="form-label">Total (Intervention)</label>
+                        <input type="number" class="form-control" id="total_ripc_${outcomeCount}" name="total_ripc_${outcomeCount}">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="events_control_${outcomeCount}" class="form-label">Events (Control)</label>
+                        <input type="number" class="form-control" id="events_control_${outcomeCount}" name="events_control_${outcomeCount}">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="total_control_${outcomeCount}" class="form-label">Total (Control)</label>
+                        <input type="number" class="form-control" id="total_control_${outcomeCount}" name="total_control_${outcomeCount}">
+                    </div>
+                </div>
+            `;
+            container.appendChild(outcomeDiv);
+        }
+
+        function removeOutcome(id) {
+            const outcomeToRemove = document.getElementById(`outcome-row-${id}`);
+            if (outcomeToRemove) {
+                outcomeToRemove.remove();
+            }
+        }
+
+        document.getElementById('add-outcome-btn').addEventListener('click', addOutcome);
+
+        // Add one outcome section by default
+        addOutcome();
+    </script>
+</body>
+</html>
