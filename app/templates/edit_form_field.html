@@ -43,6 +43,15 @@
       {{ form.required(class="form-check-input", id="requiredCheck") }}
       <label class="form-check-label" for="requiredCheck">Required</label>
     </div>
+    {% if not (current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first())) %}
+      <div class="mb-3">
+        {{ form.change_reason.label(class="form-label") }}
+        {{ form.change_reason(class="form-control", rows=2, placeholder="Explain why this field is needed") }}
+        {% if form.change_reason.description %}
+          <div class="form-text">{{ form.change_reason.description }}</div>
+        {% endif %}
+      </div>
+    {% endif %}
     {{ form.submit(class="btn btn-primary") }}
     <a class="btn btn-secondary" href="{{ url_for('list_form_fields', project_id=project.id) }}">Cancel</a>
   </form>

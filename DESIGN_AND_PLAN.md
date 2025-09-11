@@ -2,6 +2,8 @@
 
 This document outlines the plan for implementing flexible, project-specific data extraction forms.
 
+Related document: For authentication, roles, and permissions across projects, see RBAC Rules and Workflow (RBAC_info.md).
+
 ## The New Approach: Dynamic Form Generation
 
 Instead of a single, hard-coded data extraction form, the system will provide a form builder. This allows project owners to define a custom form for each systematic review project, tailored to its specific protocol.

@@ -7,13 +7,15 @@ See the high-level overview: [Project Summary](project_summary.md).
 
 For upcoming roadmap tasks, see: [Next Steps](next_steps.md).
 
+For authentication, roles, and permissions, see: [RBAC Rules and Workflow](RBAC_info.md).
+
 ### ✨ Features
 - 📑 Structured web-based forms for data extraction (multi-user, double entry & reconciliation)
 - 📝 Narrative synthesis support (study characteristics, risk of bias, qualitative summaries)
 - 📊 Built-in integration with R (`meta`, `metafor`) for forest plots, funnel plots, and advanced analyses
 - 🔄 Flexible outputs:
   - Standardized CSV/JSON exports
-  - Project-wide static field export to CSV/Excel
+  - Project-wide static field export to CSV
   - Compatible with RevMan, JASP, MetaXL, CMA
   - Seamless use in custom R or Python pipelines
 - 📈 One-click HTML/PDF reports with forest/funnel plots and model summaries
@@ -39,3 +41,10 @@ The project is divided into two main parts:
 
 ### 📜 License
 [MIT License](LICENSE) – free to use, modify, and share.
+
+### 🧪 Demo Accounts (for local development)
+If you run `make seed`, the script creates demo users and a sample project:
+- Owner (admin): `owner@example.com` / `demo123`
+- Member: `member@example.com` / `demo123`
+
+These credentials are intended for local development only. The seed script also prints them after seeding. Remove demo data with `make seed-clean`.

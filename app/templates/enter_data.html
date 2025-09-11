@@ -2,7 +2,12 @@
 
 {% block content %}
     <div class="d-flex align-items-center justify-content-between mb-3">
-      <h1 class="mb-0">Enter Data</h1>
+      <h1 class="mb-0 d-flex align-items-center gap-2">
+        <span>Enter Data</span>
+        {% if role_label %}
+          <span class="badge text-bg-light">{{ role_label }}</span>
+        {% endif %}
+      </h1>
       <div class="text-muted">Study: {{ study.title }} · Project: {{ project.name }}</div>
     </div>
 
@@ -39,6 +44,29 @@
                                 <input class="form-control" type="number" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ existing_data[field.id] if field.id in existing_data else '' }}">
                             {% elif field.field_type == 'date' %}
                                 <input class="form-control" type="date" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ existing_data[field.id] if field.id in existing_data else '' }}">
+                            {% elif field.field_type == 'select' %}
+                                {% set opts = field.options | from_json if field.options else {} %}
+                                {% set choices = (opts.choices if opts and 'choices' in opts else []) %}
+                                {% set include_nr = (opts.include_nr if opts and 'include_nr' in opts else False) %}
+                                {% set current = existing_data[field.id] if field.id in existing_data else '' %}
+                                <select class="form-select" id="field_{{ field.id }}" name="field_{{ field.id }}">
+                                  <option value="">-- Select --</option>
+                                  {% for c in choices %}
+                                    <option value="{{ c }}" {{ 'selected' if current==c else '' }}>{{ c }}</option>
+                                  {% endfor %}
+                                  {% if include_nr %}
+                                    <option value="NR" {{ 'selected' if current=='NR' else '' }}>NR (Not reported)</option>
+                                  {% endif %}
+                                </select>
+                            {% elif field.field_type == 'select_member' %}
+                                {% set current = existing_data[field.id] if field.id in existing_data else '' %}
+                                <select class="form-select" id="field_{{ field.id }}" name="field_{{ field.id }}">
+                                  <option value="">-- Select --</option>
+                                  {% for m in member_display_choices %}
+                                    <option value="{{ m }}" {{ 'selected' if current==m else '' }}>{{ m }}</option>
+                                  {% endfor %}
+                                  <option value="NR" {{ 'selected' if current=='NR' else '' }}>NR (Not reported)</option>
+                                </select>
                             {% elif field.field_type == 'dichotomous_outcome' %}
                                 {# This field type is now deprecated for numerical outcomes, but kept for compatibility #}
                                 {% set value_data = existing_data[field.id] | from_json if field.id in existing_data and existing_data[field.id] else {'events': '', 'total': ''} %}
@@ -120,7 +148,9 @@
                 <h4 class="mb-0 h5">Numerical Outcomes (Dichotomous)</h4>
                 <div class="d-flex align-items-center gap-2">
                   <span id="status-numerical_outcomes" class="small text-muted"></span>
-                  <button type="button" id="add-numerical-outcome-btn" class="btn btn-sm btn-outline-primary">Add Row</button>
+                  {% if is_owner_or_admin %}
+                    <button type="button" id="add-numerical-outcome-btn" class="btn btn-sm btn-outline-primary">Add Row</button>
+                  {% endif %}
                 </div>
             </div>
             <div class="card-body">
@@ -168,7 +198,9 @@
                 <h4 class="mb-0 h5">Numerical Outcomes (Continuous)</h4>
                 <div class="d-flex align-items-center gap-2">
                   <span id="status-continuous_outcomes" class="small text-muted"></span>
-                  <button type="button" id="add-continuous-outcome-btn" class="btn btn-sm btn-outline-primary">Add Row</button>
+                  {% if is_owner_or_admin %}
+                    <button type="button" id="add-continuous-outcome-btn" class="btn btn-sm btn-outline-primary">Add Row</button>
+                  {% endif %}
                 </div>
             </div>
             <div class="card-body">
@@ -529,11 +561,15 @@
             // Use event delegation for the add button
             document.addEventListener('click', function(event) {
                 if (event.target && event.target.id === 'add-numerical-outcome-btn') {
+                    event.preventDefault();
+                    event.stopPropagation();
                     addNumericalOutcome();
                     // schedule autosave for numerical outcomes after adding a row
                     scheduleAutosave('numerical_outcomes', 'numerical_outcomes');
                 }
                 if (event.target && event.target.id === 'add-predefined-outcome-btn') {
+                    event.preventDefault();
+                    event.stopPropagation();
                     const sel = document.getElementById('predefined_outcome');
                     const name = sel ? (sel.value || '').trim() : '';
                     if (name) {
@@ -554,6 +590,8 @@
                     }
                 }
                 if (event.target && event.target.id === 'add-all-predefined-outcome-btn') {
+                    event.preventDefault();
+                    event.stopPropagation();
                     const sel = document.getElementById('predefined_outcome');
                     const options = sel ? Array.from(sel.options).map(o => (o.value || '').trim()).filter(Boolean) : [];
                     const existing = new Set(Array.from(document.querySelectorAll('#numerical-outcomes-tbody input[id^="outcome_name_"]')).map(el => (el.value || '').trim().toLowerCase()));
@@ -578,10 +616,14 @@
                     }
                 }
                 if (event.target && event.target.id === 'add-continuous-outcome-btn') {
+                    event.preventDefault();
+                    event.stopPropagation();
                     addContinuousOutcome();
                     scheduleAutosave('continuous_outcomes', 'continuous_outcomes');
                 }
                 if (event.target && event.target.id === 'add-predefined-cont-outcome-btn') {
+                    event.preventDefault();
+                    event.stopPropagation();
                     const sel = document.getElementById('predefined_cont_outcome');
                     const name = sel ? (sel.value || '').trim() : '';
                     if (name) {
@@ -602,6 +644,8 @@
                     }
                 }
                 if (event.target && event.target.id === 'add-all-predefined-cont-outcome-btn') {
+                    event.preventDefault();
+                    event.stopPropagation();
                     const sel = document.getElementById('predefined_cont_outcome');
                     const options = sel ? Array.from(sel.options).map(o => (o.value || '').trim()).filter(Boolean) : [];
                     const existing = new Set(Array.from(document.querySelectorAll('#continuous-outcomes-tbody input[id^="cont_outcome_name_"]')).map(el => (el.value || '').trim().toLowerCase()));
@@ -626,6 +670,8 @@
                     }
                 }
                 if (event.target && event.target.classList.contains('save-section-btn')) {
+                    event.preventDefault();
+                    event.stopPropagation();
                     const sectionId = event.target.getAttribute('data-section-id');
                     const sectionName = event.target.getAttribute('data-section-name');
                     autosaveSection(sectionId, sectionName);
@@ -668,14 +714,13 @@
             // Pre-populate existing numerical outcomes
             if (existingNumericalOutcomes && existingNumericalOutcomes.length > 0) {
                 existingNumericalOutcomes.forEach(outcome => addNumericalOutcome(outcome));
-            } else {
-                // Add one empty outcome section by default if none exist
+            } else if ({{ 'true' if is_owner_or_admin else 'false' }}) {
+                // Owners/Admins get one empty row by default
                 addNumericalOutcome();
             }
             if (existingContinuousOutcomes && existingContinuousOutcomes.length > 0) {
                 existingContinuousOutcomes.forEach(outcome => addContinuousOutcome(outcome));
-            } else {
-                // Add one empty row by default
+            } else if ({{ 'true' if is_owner_or_admin else 'false' }}) {
                 addContinuousOutcome();
             }
         });

@@ -1,33 +1,152 @@
 import io # Import io for BytesIO
 import zipfile # Import zipfile
-from flask import render_template, flash, redirect, url_for, request, send_file, jsonify # Import send_file, jsonify
+import os
+from flask import render_template, flash, redirect, url_for, request, send_file, jsonify, abort # Import send_file, jsonify, abort
+from flask_login import current_user, login_user, logout_user, login_required
 from app import app, db
-from app.forms import ProjectForm, StudyForm, CustomFormFieldForm, OutcomeForm
-from app.models import Project, Study, CustomFormField, StudyDataValue, StudyNumericalOutcome, ProjectOutcome, StudyContinuousOutcome # Import new models
-from app.utils import load_template_and_create_form_fields # Import the new utility function
+from app.forms import ProjectForm, StudyForm, CustomFormFieldForm, OutcomeForm, RegisterForm, LoginForm, AddMemberForm
+from app.models import Project, Study, CustomFormField, StudyDataValue, StudyNumericalOutcome, ProjectOutcome, StudyContinuousOutcome, User, ProjectMembership, FormChangeRequest # Import new models
+from app.utils import load_template_and_create_form_fields, load_template_from_yaml_content # Import the new utility functions
 import json # Import json for handling dichotomous_outcome
 from pandas import DataFrame # Import pandas DataFrame
-import pandas as pd  # For Excel writer and general convenience
+
+# -------------------- RBAC helpers --------------------
+
+def is_admin() -> bool:
+    return bool(getattr(current_user, 'is_authenticated', False) and getattr(current_user, 'is_admin', False))
+
+
+def get_membership_for(project_id: int):
+    if not getattr(current_user, 'is_authenticated', False):
+        return None
+    return ProjectMembership.query.filter_by(user_id=current_user.id, project_id=project_id).first()
+
+
+def require_project_member(project_id: int):
+    if is_admin():
+        return
+    ms = get_membership_for(project_id)
+    if not ms:
+        abort(403)
+
+
+def require_project_owner(project_id: int):
+    if is_admin():
+        return
+    ms = get_membership_for(project_id)
+    if not ms or (ms.role or '').lower() != 'owner':
+        abort(403)
+
+
+def _propose_change(project_id: int, action_type: str, payload: dict, reason: str | None = None):
+    fcr = FormChangeRequest(
+        project_id=project_id,
+        requested_by=current_user.id,
+        action_type=action_type,
+        payload=json.dumps(payload or {}),
+        reason=(reason.strip() if isinstance(reason, str) and reason.strip() else None),
+        status='pending',
+    )
+    db.session.add(fcr)
+    db.session.commit()
+    return fcr
 
 @app.route('/')
+@login_required
 def index():
-    projects = Project.query.all()
-    return render_template('index.html', projects=projects)
+    if is_admin():
+        projects = Project.query.order_by(Project.id.asc()).all()
+        roles_by_project = {p.id: 'Admin' for p in projects}
+    else:
+        # Only projects where the user is a member/owner
+        projects = (
+            Project.query
+            .join(ProjectMembership, ProjectMembership.project_id == Project.id)
+            .filter(ProjectMembership.user_id == current_user.id)
+            .order_by(Project.id.asc())
+            .all()
+        )
+        # Map project -> role label
+        pm_rows = (
+            ProjectMembership.query
+            .filter(ProjectMembership.user_id == current_user.id,
+                    ProjectMembership.project_id.in_([p.id for p in projects]))
+            .all()
+        )
+        roles_by_project = {pm.project_id: (pm.role or '').capitalize() for pm in pm_rows}
+    return render_template('index.html', projects=projects, roles_by_project=roles_by_project)
+
+
+# -------------------- Auth routes --------------------
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if getattr(current_user, 'is_authenticated', False):
+        return redirect(url_for('index'))
+    form = RegisterForm()
+    if form.validate_on_submit():
+        email = form.email.data.strip().lower()
+        if User.query.filter(db.func.lower(User.email) == email).first():
+            flash('Email already registered.', 'error')
+            return render_template('auth_register.html', form=form)
+        user = User(name=form.name.data.strip(), email=email)
+        user.set_password(form.password.data)
+        db.session.add(user)
+        db.session.commit()
+        flash('Registration successful. You can now log in.')
+        return redirect(url_for('login'))
+    return render_template('auth_register.html', form=form)
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if getattr(current_user, 'is_authenticated', False):
+        return redirect(url_for('index'))
+    form = LoginForm()
+    if form.validate_on_submit():
+        email = form.email.data.strip().lower()
+        user = User.query.filter(db.func.lower(User.email) == email).first()
+        if not user or not user.check_password(form.password.data):
+            flash('Invalid email or password.', 'error')
+            return render_template('auth_login.html', form=form)
+        if not user.is_active:
+            flash('Account is disabled.', 'error')
+            return render_template('auth_login.html', form=form)
+        login_user(user)
+        return redirect(url_for('index'))
+    return render_template('auth_login.html', form=form)
+
+
+@app.route('/logout', methods=['POST'])
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
 
 @app.route('/add_project', methods=['GET', 'POST'])
+@login_required
 def add_project():
     form = ProjectForm()
     if form.validate_on_submit():
         project = Project(name=form.name.data, description=form.description.data)
         db.session.add(project)
         db.session.commit()
+        # Make creator an owner
+        try:
+            pm = ProjectMembership(user_id=current_user.id, project_id=project.id, role='owner', status='active')
+            db.session.add(pm)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
         flash('Project created successfully! Now, set up your data extraction form.')
         return redirect(url_for('setup_form', project_id=project.id))
     return render_template('add_project.html', form=form)
 
 @app.route('/project/<int:project_id>')
+@login_required
 def project_detail(project_id):
     project = Project.query.get_or_404(project_id)
+    require_project_member(project.id)
     studies = project.studies.all()
     try:
         field_count = project.form_fields.count()
@@ -54,6 +173,17 @@ def project_detail(project_id):
     except Exception:
         cont_count = 0
     outcome_row_count = int(dich_count) + int(cont_count)
+
+    # Pending change requests for owners/admins
+    ms = get_membership_for(project.id)
+    is_owner_or_admin = bool(is_admin() or (ms and (ms.role or '').lower() == 'owner'))
+    if is_admin():
+        role_label = 'Admin'
+    elif ms and ms.role:
+        role_label = ms.role.capitalize()
+    else:
+        role_label = ''
+    pending_count = project.change_requests.filter_by(status='pending').count() if is_owner_or_admin else 0
     return render_template(
         'project_detail.html',
         project=project,
@@ -61,12 +191,17 @@ def project_detail(project_id):
         field_count=field_count,
         study_count=len(studies),
         outcome_row_count=outcome_row_count,
+        pending_count=pending_count,
+        is_owner_or_admin=is_owner_or_admin,
+        role_label=role_label,
     )
 
 
 @app.route('/project/<int:project_id>/form_fields')
+@login_required
 def list_form_fields(project_id):
     project = Project.query.get_or_404(project_id)
+    require_project_member(project.id)
     fields = (
         CustomFormField.query
         .filter_by(project_id=project.id)
@@ -87,7 +222,28 @@ def list_form_fields(project_id):
         grouped_fields[-1]['fields'].append(f)
     outcomes = project.outcomes.order_by(ProjectOutcome.name.asc()).all()
     outcome_form = OutcomeForm()
-    return render_template('form_fields.html', project=project, grouped_fields=grouped_fields, outcomes=outcomes, outcome_form=outcome_form)
+    # Show pending change request count to owners
+    pending_count = 0
+    ms = get_membership_for(project.id)
+    is_owner_or_admin = bool(is_admin() or (ms and (ms.role or '').lower() == 'owner'))
+    if is_owner_or_admin:
+        pending_count = project.change_requests.filter_by(status='pending').count()
+    if is_admin():
+        role_label = 'Admin'
+    elif ms and ms.role:
+        role_label = ms.role.capitalize()
+    else:
+        role_label = ''
+    return render_template(
+        'form_fields.html',
+        project=project,
+        grouped_fields=grouped_fields,
+        outcomes=outcomes,
+        outcome_form=outcome_form,
+        pending_count=pending_count,
+        is_owner_or_admin=is_owner_or_admin,
+        role_label=role_label,
+    )
 
 
 def _normalize_section_orders(project_id: int):
@@ -105,6 +261,197 @@ def _normalize_section_orders(project_id: int):
     for name, order in mapping.items():
         CustomFormField.query.filter_by(project_id=project_id, section=name).update({CustomFormField.section_order: order})
     db.session.commit()
+
+
+# -------------------- Project membership management --------------------
+
+@app.route('/project/<int:project_id>/members', methods=['GET', 'POST'])
+@login_required
+def manage_members(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_owner(project.id)
+    form = AddMemberForm()
+    if form.validate_on_submit():
+        email = (form.email.data or '').strip().lower()
+        role = (form.role.data or 'member').lower()
+        user = User.query.filter(db.func.lower(User.email) == email).first()
+        if not user:
+            flash('No user found with that email. Ask them to register first.', 'error')
+            return redirect(url_for('manage_members', project_id=project.id))
+        existing = ProjectMembership.query.filter_by(user_id=user.id, project_id=project.id).first()
+        if existing:
+            existing.role = role
+            db.session.commit()
+            flash('Updated existing member role.')
+        else:
+            pm = ProjectMembership(user_id=user.id, project_id=project.id, role=role, status='active')
+            db.session.add(pm)
+            db.session.commit()
+            flash('Member added.')
+        return redirect(url_for('manage_members', project_id=project.id))
+
+    members = (
+        ProjectMembership.query
+        .filter_by(project_id=project.id)
+        .join(User, User.id == ProjectMembership.user_id)
+        .order_by(User.name.asc())
+        .all()
+    )
+    return render_template('members.html', project=project, form=form, members=members)
+
+
+# -------------------- Change requests (owner review) --------------------
+
+@app.route('/project/<int:project_id>/requests')
+@login_required
+def list_change_requests(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_owner(project.id)
+    pending = project.change_requests.order_by(FormChangeRequest.created_at.desc()).all()
+    return render_template('requests.html', project=project, requests=pending)
+
+
+def _apply_change_request(project, req: FormChangeRequest):
+    payload = json.loads(req.payload or '{}')
+    action = (req.action_type or '').lower()
+    # Minimal supported actions
+    if action == 'add_field':
+        sec = (payload.get('section') or '').strip()
+        lbl = (payload.get('label') or '').strip()
+        ftype = (payload.get('field_type') or 'text').strip()
+        required = bool(payload.get('required') or False)
+        help_text = (payload.get('help_text') or None)
+        # section_order: place at end or inherit
+        sec_order = (
+            db.session.query(db.func.min(CustomFormField.section_order))
+            .filter_by(project_id=project.id, section=sec)
+            .scalar()
+        )
+        if sec_order is None:
+            max_sec = db.session.query(db.func.max(CustomFormField.section_order)).filter_by(project_id=project.id).scalar() or 0
+            sec_order = int(max_sec) + 1
+        max_order = db.session.query(db.func.max(CustomFormField.sort_order)).filter_by(project_id=project.id, section=sec).scalar()
+        next_order = (max_order + 1) if max_order is not None else 1
+        cf = CustomFormField(
+            project_id=project.id,
+            section=sec,
+            section_order=sec_order,
+            label=lbl,
+            field_type=ftype,
+            required=required,
+            help_text=help_text,
+            sort_order=next_order,
+        )
+        db.session.add(cf)
+        db.session.commit()
+        return True
+    elif action == 'edit_field':
+        fid = int(payload.get('field_id'))
+        f = CustomFormField.query.filter_by(project_id=project.id, id=fid).first()
+        if not f:
+            return False
+        changes = payload.get('changes') or {}
+        if 'section' in changes and changes['section']:
+            new_sec = changes['section'].strip()
+            if new_sec != f.section:
+                f.section = new_sec
+                # section order and sort order adjustments similar to edit route
+                sec_order = (
+                    db.session.query(db.func.min(CustomFormField.section_order))
+                    .filter_by(project_id=project.id, section=f.section)
+                    .scalar()
+                )
+                if sec_order is None:
+                    max_sec = db.session.query(db.func.max(CustomFormField.section_order)).filter_by(project_id=project.id).scalar() or 0
+                    f.section_order = int(max_sec) + 1
+                else:
+                    f.section_order = sec_order
+                max_order = db.session.query(db.func.max(CustomFormField.sort_order)).filter_by(project_id=project.id, section=f.section).scalar()
+                f.sort_order = (max_order + 1) if max_order is not None else 1
+        if 'label' in changes and changes['label'] is not None:
+            f.label = (changes['label'] or '').strip()
+        if 'field_type' in changes and changes['field_type'] is not None:
+            f.field_type = (changes['field_type'] or '').strip()
+        if 'required' in changes and changes['required'] is not None:
+            f.required = bool(changes['required'])
+        if 'help_text' in changes:
+            txt = changes['help_text']
+            f.help_text = (txt.strip() if isinstance(txt, str) else None)
+        db.session.commit()
+        return True
+    elif action == 'delete_field':
+        fid = int(payload.get('field_id'))
+        f = CustomFormField.query.filter_by(project_id=project.id, id=fid).first()
+        if not f:
+            return False
+        section = f.section
+        db.session.delete(f)
+        db.session.commit()
+        # normalize order
+        _normalize_section_order(project.id, section)
+        return True
+    elif action == 'add_outcome':
+        name = (payload.get('name') or '').strip()
+        otype = (payload.get('outcome_type') or 'dichotomous').strip()
+        if not name:
+            return False
+        exists = ProjectOutcome.query.filter(
+            ProjectOutcome.project_id == project.id,
+            db.func.lower(ProjectOutcome.name) == db.func.lower(name)
+        ).first()
+        if exists:
+            return True
+        po = ProjectOutcome(project_id=project.id, name=name, outcome_type=otype)
+        db.session.add(po)
+        db.session.commit()
+        return True
+    elif action == 'delete_outcome':
+        oid = payload.get('outcome_id')
+        if oid:
+            outcome = ProjectOutcome.query.filter_by(project_id=project.id, id=int(oid)).first()
+        else:
+            # fallback by name
+            name = (payload.get('name') or '').strip()
+            outcome = ProjectOutcome.query.filter(
+                ProjectOutcome.project_id == project.id,
+                db.func.lower(ProjectOutcome.name) == db.func.lower(name)
+            ).first()
+        if not outcome:
+            return False
+        db.session.delete(outcome)
+        db.session.commit()
+        return True
+    return False
+
+
+@app.route('/project/<int:project_id>/requests/<int:req_id>/<action>', methods=['POST'])
+@login_required
+def act_on_change_request(project_id, req_id, action):
+    project = Project.query.get_or_404(project_id)
+    require_project_owner(project.id)
+    req = FormChangeRequest.query.filter_by(project_id=project.id, id=req_id).first_or_404()
+    if req.status != 'pending':
+        flash('Request already processed.')
+        return redirect(url_for('list_change_requests', project_id=project.id))
+    if action == 'approve':
+        ok = _apply_change_request(project, req)
+        if not ok:
+            flash('Failed to apply change request.', 'error')
+        else:
+            req.status = 'approved'
+            req.reviewed_by = current_user.id
+            req.reviewed_at = db.func.now()
+            db.session.commit()
+            flash('Change request approved and applied.')
+    elif action == 'reject':
+        req.status = 'rejected'
+        req.reviewed_by = current_user.id
+        req.reviewed_at = db.func.now()
+        db.session.commit()
+        flash('Change request rejected.')
+    else:
+        abort(400)
+    return redirect(url_for('list_change_requests', project_id=project.id))
 
 
 def _move_section(project_id: int, section_name: str, direction: str):
@@ -134,22 +481,46 @@ def _move_section(project_id: int, section_name: str, direction: str):
 
 
 @app.route('/project/<int:project_id>/form_sections/<path:section>/move_up', methods=['POST'])
+@login_required
 def move_form_section_up(project_id, section):
     project = Project.query.get_or_404(project_id)
+    ms = get_membership_for(project.id)
+    if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
+        _propose_change(
+            project.id,
+            'reorder_section',
+            {'section': section, 'direction': 'up'},
+            reason=request.form.get('reason')
+        )
+        flash('Move section request submitted for approval.')
+        return redirect(url_for('list_form_fields', project_id=project.id))
     _move_section(project.id, section, 'up')
     return redirect(url_for('list_form_fields', project_id=project.id))
 
 
 @app.route('/project/<int:project_id>/form_sections/<path:section>/move_down', methods=['POST'])
+@login_required
 def move_form_section_down(project_id, section):
     project = Project.query.get_or_404(project_id)
+    ms = get_membership_for(project.id)
+    if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
+        _propose_change(
+            project.id,
+            'reorder_section',
+            {'section': section, 'direction': 'down'},
+            reason=request.form.get('reason')
+        )
+        flash('Move section request submitted for approval.')
+        return redirect(url_for('list_form_fields', project_id=project.id))
     _move_section(project.id, section, 'down')
     return redirect(url_for('list_form_fields', project_id=project.id))
 
 
 @app.route('/project/<int:project_id>/form_fields/add', methods=['GET', 'POST'])
+@login_required
 def add_form_field(project_id):
     project = Project.query.get_or_404(project_id)
+    require_project_member(project.id)
     form = CustomFormFieldForm()
     # Existing sections for this project's form
     sections = [
@@ -164,6 +535,18 @@ def add_form_field(project_id):
         if row[0]
     ]
     if form.validate_on_submit():
+        ms = get_membership_for(project.id)
+        if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
+            payload = {
+                'section': form.section.data.strip(),
+                'label': form.label.data.strip(),
+                'field_type': form.field_type.data,
+                'required': bool(form.required.data),
+                'help_text': (form.help_text.data.strip() if form.help_text.data else None),
+            }
+            _propose_change(project.id, 'add_field', payload, reason=form.change_reason.data)
+            flash('Field addition proposed for approval.')
+            return redirect(url_for('list_form_fields', project_id=project.id))
         # Determine next sort_order within this section
         sec_name = form.section.data.strip()
         max_order = (
@@ -203,8 +586,10 @@ def add_form_field(project_id):
 
 
 @app.route('/project/<int:project_id>/form_fields/<int:field_id>/edit', methods=['GET', 'POST'])
+@login_required
 def edit_form_field(project_id, field_id):
     project = Project.query.get_or_404(project_id)
+    require_project_member(project.id)
     field = CustomFormField.query.filter_by(project_id=project.id, id=field_id).first_or_404()
     form = CustomFormFieldForm(obj=field)
     sections = [
@@ -219,6 +604,21 @@ def edit_form_field(project_id, field_id):
         if row[0]
     ]
     if form.validate_on_submit():
+        ms = get_membership_for(project.id)
+        if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
+            payload = {
+                'field_id': field.id,
+                'changes': {
+                    'section': form.section.data.strip(),
+                    'label': form.label.data.strip(),
+                    'field_type': form.field_type.data,
+                    'required': bool(form.required.data),
+                    'help_text': (form.help_text.data.strip() if form.help_text.data else None),
+                }
+            }
+            _propose_change(project.id, 'edit_field', payload, reason=form.change_reason.data)
+            flash('Field edit proposed for approval.')
+            return redirect(url_for('list_form_fields', project_id=project.id))
         old_section = field.section
         field.section = form.section.data.strip()
         field.label = form.label.data.strip()
@@ -254,12 +654,19 @@ def edit_form_field(project_id, field_id):
 
 
 @app.route('/project/<int:project_id>/outcomes/add', methods=['POST'])
+@login_required
 def add_project_outcome(project_id):
     project = Project.query.get_or_404(project_id)
+    require_project_member(project.id)
     form = OutcomeForm()
     if form.validate_on_submit():
         name = form.name.data.strip()
         outcome_type = form.outcome_type.data
+        ms = get_membership_for(project.id)
+        if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
+            _propose_change(project.id, 'add_outcome', {'name': name, 'outcome_type': outcome_type}, reason=form.reason.data)
+            flash('Outcome addition proposed for approval.')
+            return redirect(url_for('list_form_fields', project_id=project.id))
         # Prevent duplicates by name (case-insensitive)
         exists = (
             ProjectOutcome.query.filter(
@@ -280,8 +687,15 @@ def add_project_outcome(project_id):
 
 
 @app.route('/project/<int:project_id>/outcomes/<int:outcome_id>/delete', methods=['POST'])
+@login_required
 def delete_project_outcome(project_id, outcome_id):
     project = Project.query.get_or_404(project_id)
+    require_project_member(project.id)
+    ms = get_membership_for(project.id)
+    if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
+        _propose_change(project.id, 'delete_outcome', {'outcome_id': outcome_id}, reason=request.form.get('reason'))
+        flash('Outcome deletion proposed for approval.')
+        return redirect(url_for('list_form_fields', project_id=project.id))
     outcome = ProjectOutcome.query.filter_by(project_id=project.id, id=outcome_id).first_or_404()
     db.session.delete(outcome)
     db.session.commit()
@@ -290,9 +704,16 @@ def delete_project_outcome(project_id, outcome_id):
 
 
 @app.route('/project/<int:project_id>/form_fields/<int:field_id>/delete', methods=['POST'])
+@login_required
 def delete_form_field(project_id, field_id):
     project = Project.query.get_or_404(project_id)
+    require_project_member(project.id)
     field = CustomFormField.query.filter_by(project_id=project.id, id=field_id).first_or_404()
+    ms = get_membership_for(project.id)
+    if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
+        _propose_change(project.id, 'delete_field', {'field_id': field.id}, reason=request.form.get('reason'))
+        flash('Field deletion proposed for approval.')
+        return redirect(url_for('list_form_fields', project_id=project.id))
     section = field.section
     db.session.delete(field)
     db.session.commit()
@@ -318,8 +739,14 @@ def _normalize_section_order(project_id: int, section: str):
 
 
 @app.route('/project/<int:project_id>/form_fields/<int:field_id>/move_up', methods=['POST'])
+@login_required
 def move_form_field_up(project_id, field_id):
     project = Project.query.get_or_404(project_id)
+    ms = get_membership_for(project.id)
+    if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
+        _propose_change(project.id, 'reorder_field', {'field_id': field_id, 'direction': 'up'}, reason=request.form.get('reason'))
+        flash('Move field request submitted for approval.')
+        return redirect(url_for('list_form_fields', project_id=project.id))
     field = CustomFormField.query.filter_by(project_id=project.id, id=field_id).first_or_404()
     _normalize_section_order(project.id, field.section)
     prev_field = (
@@ -336,8 +763,14 @@ def move_form_field_up(project_id, field_id):
 
 
 @app.route('/project/<int:project_id>/form_fields/<int:field_id>/move_down', methods=['POST'])
+@login_required
 def move_form_field_down(project_id, field_id):
     project = Project.query.get_or_404(project_id)
+    ms = get_membership_for(project.id)
+    if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
+        _propose_change(project.id, 'reorder_field', {'field_id': field_id, 'direction': 'down'}, reason=request.form.get('reason'))
+        flash('Move field request submitted for approval.')
+        return redirect(url_for('list_form_fields', project_id=project.id))
     field = CustomFormField.query.filter_by(project_id=project.id, id=field_id).first_or_404()
     _normalize_section_order(project.id, field.section)
     next_field = (
@@ -354,8 +787,10 @@ def move_form_field_down(project_id, field_id):
 
 
 @app.route('/project/<int:project_id>/delete', methods=['POST'])
+@login_required
 def delete_project(project_id):
     project = Project.query.get_or_404(project_id)
+    require_project_owner(project.id)
     # Gather counts for messaging
     study_q = project.studies
     studies = study_q.all() if hasattr(study_q, 'all') else []
@@ -381,11 +816,13 @@ def delete_project(project_id):
     return redirect(url_for('index'))
 
 @app.route('/project/<int:project_id>/add_study', methods=['GET', 'POST'])
+@login_required
 def add_study(project_id):
     project = Project.query.get_or_404(project_id)
+    require_project_member(project.id)
     form = StudyForm()
     if form.validate_on_submit():
-        study = Study(title=form.title.data, author=form.author.data, year=form.year.data, project=project)
+        study = Study(title=form.title.data, author=form.author.data, year=form.year.data, project=project, created_by=current_user.id)
         db.session.add(study)
         db.session.commit()
         flash('Study added successfully!')
@@ -393,19 +830,49 @@ def add_study(project_id):
     return render_template('add_study.html', form=form, project=project)
 
 @app.route('/project/<int:project_id>/setup_form', methods=['GET', 'POST'])
+@login_required
 def setup_form(project_id):
     project = Project.query.get_or_404(project_id)
+    require_project_owner(project.id)
     if request.method == 'POST':
         template_id = request.form.get('template_id')
         setup_mode = (request.form.get('setup_mode') or 'auto').lower()  # 'auto' | 'customize' | 'scratch'
+        uploaded = request.files.get('yaml_file')
 
         # Start from scratch ignores template selection
         if setup_mode == 'scratch':
             flash('Starting from scratch. Add sections and fields to build your form.')
             return redirect(url_for('list_form_fields', project_id=project.id))
 
+        # If a YAML file was uploaded, use it
+        if uploaded and (uploaded.filename or '').lower().endswith(('.yaml', '.yml')):
+            try:
+                yaml_text = uploaded.read().decode('utf-8')
+                existing_count = (
+                    db.session.query(db.func.count(CustomFormField.id))
+                    .filter_by(project_id=project.id)
+                    .scalar()
+                ) or 0
+                if existing_count > 0:
+                    if setup_mode == 'customize':
+                        flash('A data extraction form already exists for this project. Customize it below.')
+                        return redirect(url_for('list_form_fields', project_id=project.id))
+                    else:
+                        flash('A data extraction form already exists for this project.')
+                        return redirect(url_for('project_detail', project_id=project.id))
+                load_template_from_yaml_content(project.id, yaml_text)
+                if setup_mode == 'customize':
+                    flash('Form created from uploaded YAML. Customize it below.')
+                    return redirect(url_for('list_form_fields', project_id=project.id))
+                else:
+                    flash('Data extraction form generated from uploaded template!')
+                    return redirect(url_for('project_detail', project_id=project.id))
+            except Exception as e:
+                flash(f'Failed to load uploaded YAML: {e}', 'error')
+                return redirect(url_for('setup_form', project_id=project.id))
+
         # For auto/customize, a supported template must be chosen
-        if template_id == 'rct_v1':  # Only RCT template is supported for now
+        if template_id in ('rct_v2', 'rct_v1'):
             # Guard: if fields already exist, do not recreate from template
             existing_count = (
                 db.session.query(db.func.count(CustomFormField.id))
@@ -433,9 +900,24 @@ def setup_form(project_id):
             flash('Invalid template selected or template not yet supported.', 'error')
     return render_template('setup_form.html', project=project)
 
+
+@app.route('/templates/<template_id>.yaml')
+@login_required
+def download_template_yaml(template_id):
+    # Only allow known templates inside app/form_templates
+    allowed = {'rct_v1', 'rct_v2'}
+    if template_id not in allowed:
+        abort(404)
+    path = os.path.join(os.path.dirname(__file__), 'form_templates', f'{template_id}.yaml')
+    if not os.path.exists(path):
+        abort(404)
+    return send_file(path, as_attachment=True, download_name=f'{template_id}.yaml', mimetype='text/yaml')
+
 @app.route('/project/<int:project_id>/study/<int:study_id>/enter_data', methods=['GET', 'POST'])
+@login_required
 def enter_data(project_id, study_id):
     project = Project.query.get_or_404(project_id)
+    require_project_member(project.id)
     study = Study.query.get_or_404(study_id)
     
     # Get custom form fields for this project, ordered by section and in-section order
@@ -484,6 +966,10 @@ def enter_data(project_id, study_id):
             'sd_control': co.sd_control,
             'n_control': co.n_control,
         })
+
+    # Membership role for enforcement
+    ms = get_membership_for(project.id)
+    is_owner_or_admin = bool(is_admin() or (ms and (ms.role or '').lower() == 'owner'))
 
     if request.method == 'POST':
         # Save static form fields
@@ -551,11 +1037,7 @@ def enter_data(project_id, study_id):
                 db.session.add(data_value)
         
         # Save numerical outcomes (dichotomous)
-        # First, delete all existing numerical outcomes for this study to handle removals
-        StudyNumericalOutcome.query.filter_by(study_id=study.id).delete()
-        
-        # Iterate through submitted numerical outcome data
-        # We use outcome_row_index hidden fields to get all submitted row indices
+        # Gather submitted rows first; for members we will upsert per name
         outcome_indices = set()
         for index_str in request.form.getlist('outcome_row_index'):
             try:
@@ -564,26 +1046,53 @@ def enter_data(project_id, study_id):
             except ValueError:
                 pass # Not a valid outcome index
 
+        submitted_dich = []
         for index in sorted(list(outcome_indices)):
-            outcome_name = request.form.get(f'outcome_name_{index}')
-            events_intervention = request.form.get(f'events_intervention_{index}', type=int)
-            total_intervention = request.form.get(f'total_intervention_{index}', type=int)
-            events_control = request.form.get(f'events_control_{index}', type=int)
-            total_control = request.form.get(f'total_control_{index}', type=int)
+            outcome_name = (request.form.get(f'outcome_name_{index}') or '').strip()
+            if not outcome_name:
+                continue
+            submitted_dich.append({
+                'name': outcome_name,
+                'ei': request.form.get(f'events_intervention_{index}', type=int),
+                'ti': request.form.get(f'total_intervention_{index}', type=int),
+                'ec': request.form.get(f'events_control_{index}', type=int),
+                'tc': request.form.get(f'total_control_{index}', type=int),
+            })
 
-            if outcome_name: # Only save if outcome name is provided
-                numerical_outcome = StudyNumericalOutcome(
+        if is_owner_or_admin:
+            # Replace all for owners/admins
+            StudyNumericalOutcome.query.filter_by(study_id=study.id).delete()
+            for row in submitted_dich:
+                db.session.add(StudyNumericalOutcome(
                     study_id=study.id,
-                    outcome_name=outcome_name,
-                    events_intervention=events_intervention,
-                    total_intervention=total_intervention,
-                    events_control=events_control,
-                    total_control=total_control
-                )
-                db.session.add(numerical_outcome)
+                    outcome_name=row['name'],
+                    events_intervention=row['ei'],
+                    total_intervention=row['ti'],
+                    events_control=row['ec'],
+                    total_control=row['tc'],
+                ))
+        else:
+            # Upsert allowed rows; do not remove other existing outcomes
+            allowed_dich = set([ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='dichotomous').all() ])
+            names_to_apply = [r['name'] for r in submitted_dich if r['name'].lower() in allowed_dich]
+            if names_to_apply:
+                (StudyNumericalOutcome.query
+                    .filter_by(study_id=study.id)
+                    .filter(StudyNumericalOutcome.outcome_name.in_(names_to_apply))
+                    .delete(synchronize_session=False))
+                for row in submitted_dich:
+                    if row['name'].lower() not in allowed_dich:
+                        continue
+                    db.session.add(StudyNumericalOutcome(
+                        study_id=study.id,
+                        outcome_name=row['name'],
+                        events_intervention=row['ei'],
+                        total_intervention=row['ti'],
+                        events_control=row['ec'],
+                        total_control=row['tc'],
+                    ))
 
         # Save continuous outcomes
-        StudyContinuousOutcome.query.filter_by(study_id=study.id).delete()
         cont_indices = set()
         for index_str in request.form.getlist('cont_outcome_row_index'):
             try:
@@ -604,8 +1113,9 @@ def enter_data(project_id, study_id):
                 return int(v)
             except (TypeError, ValueError):
                 return None
+        submitted_cont = []
         for index in sorted(list(cont_indices)):
-            cname = request.form.get(f'cont_outcome_name_{index}')
+            cname = (request.form.get(f'cont_outcome_name_{index}') or '').strip()
             mi = to_float(request.form.get(f'cont_mean_intervention_{index}'))
             sdi = to_float(request.form.get(f'cont_sd_intervention_{index}'))
             ni = to_int(request.form.get(f'cont_n_intervention_{index}'))
@@ -613,21 +1123,54 @@ def enter_data(project_id, study_id):
             sdc = to_float(request.form.get(f'cont_sd_control_{index}'))
             nc = to_int(request.form.get(f'cont_n_control_{index}'))
             if cname:
-                co = StudyContinuousOutcome(
+                submitted_cont.append({'name': cname, 'mi': mi, 'sdi': sdi, 'ni': ni, 'mc': mc, 'sdc': sdc, 'nc': nc})
+
+        if is_owner_or_admin:
+            StudyContinuousOutcome.query.filter_by(study_id=study.id).delete()
+            for row in submitted_cont:
+                db.session.add(StudyContinuousOutcome(
                     study_id=study.id,
-                    outcome_name=cname,
-                    mean_intervention=mi,
-                    sd_intervention=sdi,
-                    n_intervention=ni,
-                    mean_control=mc,
-                    sd_control=sdc,
-                    n_control=nc,
-                )
-                db.session.add(co)
+                    outcome_name=row['name'],
+                    mean_intervention=row['mi'],
+                    sd_intervention=row['sdi'],
+                    n_intervention=row['ni'],
+                    mean_control=row['mc'],
+                    sd_control=row['sdc'],
+                    n_control=row['nc'],
+                ))
+        else:
+            allowed_cont = set([ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='continuous').all() ])
+            names_to_apply_c = [r['name'] for r in submitted_cont if r['name'].lower() in allowed_cont]
+            if names_to_apply_c:
+                (StudyContinuousOutcome.query
+                    .filter_by(study_id=study.id)
+                    .filter(StudyContinuousOutcome.outcome_name.in_(names_to_apply_c))
+                    .delete(synchronize_session=False))
+                for row in submitted_cont:
+                    if row['name'].lower() not in allowed_cont:
+                        continue
+                    db.session.add(StudyContinuousOutcome(
+                        study_id=study.id,
+                        outcome_name=row['name'],
+                        mean_intervention=row['mi'],
+                        sd_intervention=row['sdi'],
+                        n_intervention=row['ni'],
+                        mean_control=row['mc'],
+                        sd_control=row['sdc'],
+                        n_control=row['nc'],
+                    ))
 
         db.session.commit()
         flash('Study data saved successfully!')
         return redirect(url_for('project_detail', project_id=project.id))
+
+    # Role label for UI badge
+    if is_admin():
+        role_label = 'Admin'
+    elif ms and ms.role:
+        role_label = ms.role.capitalize()
+    else:
+        role_label = ''
 
     return render_template(
         'enter_data.html',
@@ -637,12 +1180,17 @@ def enter_data(project_id, study_id):
         existing_data=existing_data,
         existing_numerical_outcomes=existing_numerical_outcomes,
         existing_continuous_outcomes=existing_continuous_outcomes,
+        role_label=role_label,
+        is_owner_or_admin=is_owner_or_admin,
+        member_display_choices=[f"{ms.user.name} <{ms.user.email}>" for ms in project.memberships.join(User, User.id == ProjectMembership.user_id).order_by(User.name.asc()).all()],
     )
 
 
 @app.route('/project/<int:project_id>/study/<int:study_id>/autosave', methods=['POST'])
+@login_required
 def autosave_study_data(project_id, study_id):
     project = Project.query.get_or_404(project_id)
+    require_project_member(project.id)
     study = Study.query.get_or_404(study_id)
 
     data = request.get_json(silent=True) or {}
@@ -652,13 +1200,23 @@ def autosave_study_data(project_id, study_id):
 
     try:
         if section == 'numerical_outcomes':
-            # Replace all numerical outcomes for this study with provided rows
-            StudyNumericalOutcome.query.filter_by(study_id=study.id).delete()
             rows = data.get('numerical_outcomes') or []
-            for row in rows:
-                outcome_name = (row.get('outcome_name') or '').strip()
-                if not outcome_name:
-                    continue
+            ms = get_membership_for(project.id)
+            is_owner_or_admin = bool(is_admin() or (ms and (ms.role or '').lower() == 'owner'))
+            allowed = set([ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='dichotomous').all() ])
+            # Validate first for members
+            if not is_owner_or_admin:
+                for row in rows:
+                    name = (row.get('outcome_name') or '').strip()
+                    if name and name.lower() not in allowed:
+                        return jsonify({'ok': False, 'error': f'Unauthorized outcome name: {name}'}), 400
+                # Upsert by names provided; preserve others
+                names = [ (row.get('outcome_name') or '').strip() for row in rows if (row.get('outcome_name') or '').strip() ]
+                if names:
+                    (StudyNumericalOutcome.query
+                        .filter_by(study_id=study.id)
+                        .filter(StudyNumericalOutcome.outcome_name.in_(names))
+                        .delete(synchronize_session=False))
                 def to_int(v):
                     if v is None or v == '':
                         return None
@@ -666,22 +1224,48 @@ def autosave_study_data(project_id, study_id):
                         return int(v)
                     except (TypeError, ValueError):
                         return None
-                numerical_outcome = StudyNumericalOutcome(
-                    study_id=study.id,
-                    outcome_name=outcome_name,
-                    events_intervention=to_int(row.get('events_intervention')),
-                    total_intervention=to_int(row.get('total_intervention')),
-                    events_control=to_int(row.get('events_control')),
-                    total_control=to_int(row.get('total_control')),
-                )
-                db.session.add(numerical_outcome)
+                for row in rows:
+                    name = (row.get('outcome_name') or '').strip()
+                    if not name:
+                        continue
+                    db.session.add(StudyNumericalOutcome(
+                        study_id=study.id,
+                        outcome_name=name,
+                        events_intervention=to_int(row.get('events_intervention')),
+                        total_intervention=to_int(row.get('total_intervention')),
+                        events_control=to_int(row.get('events_control')),
+                        total_control=to_int(row.get('total_control')),
+                    ))
+            else:
+                # Owners/admins replace all rows
+                StudyNumericalOutcome.query.filter_by(study_id=study.id).delete()
+                def to_int(v):
+                    if v is None or v == '':
+                        return None
+                    try:
+                        return int(v)
+                    except (TypeError, ValueError):
+                        return None
+                for row in rows:
+                    name = (row.get('outcome_name') or '').strip()
+                    if not name:
+                        continue
+                    db.session.add(StudyNumericalOutcome(
+                        study_id=study.id,
+                        outcome_name=name,
+                        events_intervention=to_int(row.get('events_intervention')),
+                        total_intervention=to_int(row.get('total_intervention')),
+                        events_control=to_int(row.get('events_control')),
+                        total_control=to_int(row.get('total_control')),
+                    ))
             db.session.commit()
             return jsonify({'ok': True})
 
         if section == 'continuous_outcomes':
-            # Replace all continuous outcomes for this study with provided rows
-            StudyContinuousOutcome.query.filter_by(study_id=study.id).delete()
             rows = data.get('continuous_outcomes') or []
+            ms = get_membership_for(project.id)
+            is_owner_or_admin = bool(is_admin() or (ms and (ms.role or '').lower() == 'owner'))
+            allowed = set([ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='continuous').all() ])
             def to_float(v):
                 if v is None or v == '':
                     return None
@@ -696,21 +1280,47 @@ def autosave_study_data(project_id, study_id):
                     return int(v)
                 except (TypeError, ValueError):
                     return None
-            for row in rows:
-                outcome_name = (row.get('outcome_name') or '').strip()
-                if not outcome_name:
-                    continue
-                co = StudyContinuousOutcome(
-                    study_id=study.id,
-                    outcome_name=outcome_name,
-                    mean_intervention=to_float(row.get('mean_intervention')),
-                    sd_intervention=to_float(row.get('sd_intervention')),
-                    n_intervention=to_int(row.get('n_intervention')),
-                    mean_control=to_float(row.get('mean_control')),
-                    sd_control=to_float(row.get('sd_control')),
-                    n_control=to_int(row.get('n_control')),
-                )
-                db.session.add(co)
+            if not is_owner_or_admin:
+                for row in rows:
+                    name = (row.get('outcome_name') or '').strip()
+                    if name and name.lower() not in allowed:
+                        return jsonify({'ok': False, 'error': f'Unauthorized outcome name: {name}'}), 400
+                names = [ (row.get('outcome_name') or '').strip() for row in rows if (row.get('outcome_name') or '').strip() ]
+                if names:
+                    (StudyContinuousOutcome.query
+                        .filter_by(study_id=study.id)
+                        .filter(StudyContinuousOutcome.outcome_name.in_(names))
+                        .delete(synchronize_session=False))
+                for row in rows:
+                    name = (row.get('outcome_name') or '').strip()
+                    if not name:
+                        continue
+                    db.session.add(StudyContinuousOutcome(
+                        study_id=study.id,
+                        outcome_name=name,
+                        mean_intervention=to_float(row.get('mean_intervention')),
+                        sd_intervention=to_float(row.get('sd_intervention')),
+                        n_intervention=to_int(row.get('n_intervention')),
+                        mean_control=to_float(row.get('mean_control')),
+                        sd_control=to_float(row.get('sd_control')),
+                        n_control=to_int(row.get('n_control')),
+                    ))
+            else:
+                StudyContinuousOutcome.query.filter_by(study_id=study.id).delete()
+                for row in rows:
+                    name = (row.get('outcome_name') or '').strip()
+                    if not name:
+                        continue
+                    db.session.add(StudyContinuousOutcome(
+                        study_id=study.id,
+                        outcome_name=name,
+                        mean_intervention=to_float(row.get('mean_intervention')),
+                        sd_intervention=to_float(row.get('sd_intervention')),
+                        n_intervention=to_int(row.get('n_intervention')),
+                        mean_control=to_float(row.get('mean_control')),
+                        sd_control=to_float(row.get('sd_control')),
+                        n_control=to_int(row.get('n_control')),
+                    ))
             db.session.commit()
             return jsonify({'ok': True})
 
@@ -809,9 +1419,12 @@ def autosave_study_data(project_id, study_id):
         db.session.rollback()
         return jsonify({'ok': False, 'error': str(e)}), 500
 
-@app.route('/project/<int:project_id>/export_jamovi')
-def export_jamovi(project_id):
+@app.route('/project/<int:project_id>/export_outcomes')
+@app.route('/project/<int:project_id>/export_jamovi')  # backward-compatible alias
+@login_required
+def export_outcomes(project_id):
     project = Project.query.get_or_404(project_id)
+    require_project_member(project.id)
 
     # Get all studies for the project in a stable order
     studies = project.studies.order_by(Study.id.asc()).all()
@@ -823,8 +1436,8 @@ def export_jamovi(project_id):
         return "".join([c for c in (name or '') if c.isalnum() or c in (' ', '.', '_', '-')]).strip() or 'outcome'
 
     with zipfile.ZipFile(zip_buffer, mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
-        # Define columns for Jamovi export
-        jamovi_columns = ['Study', 'Intervention_events', 'Intervention_total', 'Control_events', 'Control_Total']
+        # Define columns for outcomes export
+        outcome_columns = ['Study', 'Intervention_events', 'Intervention_total', 'Control_events', 'Control_Total']
 
         # Try primary source: StudyNumericalOutcome rows
         outcomes_data = {}
@@ -846,7 +1459,7 @@ def export_jamovi(project_id):
         for outcome_name, data_rows in outcomes_data.items():
             if not data_rows:
                 continue
-            df = DataFrame(data_rows, columns=jamovi_columns)
+            df = DataFrame(data_rows, columns=outcome_columns)
             output = io.StringIO()
             df.to_csv(output, index=False)
             output.seek(0)
@@ -888,7 +1501,7 @@ def export_jamovi(project_id):
                             'Control_Total': None,
                         })
                 if rows:
-                    df = DataFrame(rows, columns=jamovi_columns)
+                    df = DataFrame(rows, columns=outcome_columns)
                     output = io.StringIO()
                     df.to_csv(output, index=False)
                     output.seek(0)
@@ -947,17 +1560,16 @@ def export_jamovi(project_id):
 
 
 @app.route('/project/<int:project_id>/export_static')
+@login_required
 def export_static(project_id):
-    """Export all static (non-tabular) custom form fields for all studies in a project.
+    """Export all static (non-tabular) custom form fields for all studies in a project as CSV.
 
     Produces a flat table with columns:
     - Study metadata: Study, Author, Year
-    - One column per CustomFormField (or two for dichotomous_outcome: events/total)
-
-    Query param: format=csv|xlsx (default csv)
+    - One column per CustomFormField (or multiple columns for composite types)
     """
     project = Project.query.get_or_404(project_id)
-    out_format = (request.args.get('format') or 'csv').lower()
+    require_project_member(project.id)
 
     # Load fields in a stable, user-visible order
     fields = (
@@ -1054,39 +1666,28 @@ def export_static(project_id):
     # Safe filename components
     def safe(name: str):
         return "".join([c for c in name or '' if c.isalnum() or c in (' ', '.', '_', '-')]).strip() or 'project'
-
-    if out_format == 'xlsx':
-        buf = io.BytesIO()
-        with pd.ExcelWriter(buf, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='StaticFields')
-        buf.seek(0)
-        return send_file(
-            buf,
-            download_name=f"{safe(project.name)}_Static_Fields.xlsx",
-            as_attachment=True,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        )
-    else:
-        # Default CSV
-        sio = io.StringIO()
-        df.to_csv(sio, index=False)
-        data = io.BytesIO(sio.getvalue().encode('utf-8'))
-        data.seek(0)
-        return send_file(
-            data,
-            download_name=f"{safe(project.name)}_Static_Fields.csv",
-            as_attachment=True,
-            mimetype='text/csv',
-        )
+    # CSV only
+    sio = io.StringIO()
+    df.to_csv(sio, index=False)
+    data = io.BytesIO(sio.getvalue().encode('utf-8'))
+    data.seek(0)
+    return send_file(
+        data,
+        download_name=f"{safe(project.name)}_Static_Fields.csv",
+        as_attachment=True,
+        mimetype='text/csv',
+    )
 
 
 @app.route('/project/<int:project_id>/export_all_zip')
+@login_required
 def export_all_zip(project_id):
     """Create a single zip containing:
     - One CSV with all static fields across studies
     - One CSV per numerical outcome (jamovi-style), if present
     """
     project = Project.query.get_or_404(project_id)
+    require_project_member(project.id)
 
     def safe(name: str):
         return "".join([c for c in (name or '') if c.isalnum() or c in (' ', '.', '_', '-')]).strip() or 'project'
@@ -1164,8 +1765,8 @@ def export_all_zip(project_id):
 
     static_df = DataFrame(rows, columns=columns)
 
-    # Build outcome CSVs (same logic as export_jamovi)
-    jamovi_columns = ['Study', 'Intervention_events', 'Intervention_total', 'Control_events', 'Control_Total']
+    # Build outcome CSVs (same logic as export_outcomes)
+    outcome_columns = ['Study', 'Intervention_events', 'Intervention_total', 'Control_events', 'Control_Total']
     outcomes_data = {}
     studies = project.studies.order_by(Study.id.asc()).all()
     for study in studies:
@@ -1194,7 +1795,7 @@ def export_all_zip(project_id):
         for outcome_name, data_rows in outcomes_data.items():
             if not data_rows:
                 continue
-            df = DataFrame(data_rows, columns=jamovi_columns)
+            df = DataFrame(data_rows, columns=outcome_columns)
             out_sio = io.StringIO()
             df.to_csv(out_sio, index=False)
             out_sio.seek(0)

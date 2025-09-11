@@ -25,6 +25,9 @@ The project is divided into two main parts:
 - **Docker** — deployment after local development and testing
 - **Optional Vue** — richer front-end interactions (form repopulation, autosave)
 
+## RBAC
+For authentication, roles, and project-level permissions, see: `RBAC_info.md`.
+
 ## Role of the CLI Agent
 The **CLI agent** is a developer-side assistant.  
 Its role is to:
@@ -35,3 +38,5 @@ Its role is to:
 
 The CLI agent does **not** form part of the end-user product experience. It is a tool to make development smoother and more reproducible.
 
+Related docs:
+- RBAC model and workflow: `RBAC_info.md`

@@ -1,5 +1,5 @@
 from app import app, db
-from app.models import Project, Study
+from app.models import Project, Study, ProjectMembership
 
 NAME = "Demo SRMA"
 
@@ -16,6 +16,9 @@ def main():
                 if hasattr(p, 'form_fields'):
                     for f in p.form_fields.all():
                         db.session.delete(f)
+                # Delete memberships for the project
+                for ms in p.memberships.all() if hasattr(p, 'memberships') else []:
+                    db.session.delete(ms)
                 db.session.flush()
             except Exception:
                 pass

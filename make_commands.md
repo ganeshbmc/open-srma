@@ -51,6 +51,9 @@ This project includes a Makefile to streamline common developer tasks. Below are
   - Alternative (from repo root, after activating venv):
     - macOS/Linux: `PYTHONPATH=. FLASK_APP=run.py python3 misc/seed_demo.py`
     - Windows PowerShell: `$env:PYTHONPATH='.'; $env:FLASK_APP='run.py'; python misc/seed_demo.py`
+  - Demo credentials (created by the seed script):
+    - Owner (admin): `owner@example.com` / `demo123`
+    - Member: `member@example.com` / `demo123`
 
 - seed-clean
   - Description: Remove the seeded demo project and its related data.
@@ -67,3 +70,17 @@ This project includes a Makefile to streamline common developer tasks. Below are
 - If imports fail when running scripts in `misc/`, ensure the repo root is on `PYTHONPATH` (as shown above).
 - Before running `seed` or `seed-clean`, apply migrations with `make migrate`.
 - For CSRF-protected routes (e.g., autosave), ensure the app runs through `run.py` or with `FLASK_APP=run.py`.
+- RBAC: See `RBAC_info.md` for roles and permissions. After updating roles or adding users, ensure migrations are applied and register/login via the UI.
+
+## CLI Helpers
+
+With the app context (`FLASK_APP=run.py`), some useful commands:
+
+- Create a user (prompts for fields; `--admin` optional)
+  - `FLASK_APP=run.py flask create-user --admin`
+
+- Promote an existing user to admin
+  - `FLASK_APP=run.py flask promote-admin you@example.com`
+
+- Add/update a project membership (role `owner` or `member`)
+  - `FLASK_APP=run.py flask add-membership you@example.com 1 owner`

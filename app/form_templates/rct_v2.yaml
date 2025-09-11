@@ -1,8 +1,8 @@
-# Base template for Randomized Controlled Trials (RCTs)
-# This file defines the default fields for a new SRMA project.
+# Base template for Randomized Controlled Trials (RCTs) — v2
+# Improves baseline per-arm fields and adds select/dropdown fields with NR option.
 
-template_name: "Randomized Controlled Trial (RCT)"
-template_id: "rct_v1"
+template_name: "Randomized Controlled Trial (RCT) v2"
+template_id: "rct_v2"
 
 sections:
   - section_name: "Study Identification"
@@ -11,41 +11,60 @@ sections:
         field_type: "text"
       - label: "Reference citation"
         field_type: "textarea"
-      - label: "Publication type"
-        field_type: "text"
       - label: "Country"
         field_type: "text"
-      - label: "Author Email"
-        field_type: "text"
-      - label: "Assessor ID"
-        field_type: "text"
-      - label: "Assessed Date"
-        field_type: "date"
+      - label: "Assessor"
+        field_type: "select_member"
+        help: "Select the assessor from project members/owners; choose NR if not reported."
+        options:
+          roles: ["owner", "member"]
+          include_nr: true
 
   - section_name: "Study Characteristics"
     fields:
       - label: "Study design"
         field_type: "text"
+      - label: "Randomization type"
+        field_type: "select"
+        options:
+          choices: ["Simple", "Block", "Stratified", "Cluster", "Adaptive"]
+          include_nr: true
       - label: "Unit of allocation"
         field_type: "text"
       - label: "Ethical approval obtained"
-        field_type: "text"
-      - label: "Randomization type"
-        field_type: "text"
+        field_type: "select"
+        options:
+          choices: ["Yes", "No"]
+          include_nr: true
       - label: "Start Date"
         field_type: "date"
       - label: "End Date"
         field_type: "date"
       - label: "Patient Blinding"
-        field_type: "text"
+        field_type: "select"
+        options:
+          choices: ["Yes", "No", "Partial"]
+          include_nr: true
       - label: "Physician Blinding"
-        field_type: "text"
+        field_type: "select"
+        options:
+          choices: ["Yes", "No", "Partial"]
+          include_nr: true
       - label: "Investigator Blinding"
-        field_type: "text"
+        field_type: "select"
+        options:
+          choices: ["Yes", "No", "Partial"]
+          include_nr: true
       - label: "Outcome Assessor Blinding"
-        field_type: "text"
+        field_type: "select"
+        options:
+          choices: ["Yes", "No", "Partial"]
+          include_nr: true
       - label: "Data Analyst Blinding"
-        field_type: "text"
+        field_type: "select"
+        options:
+          choices: ["Yes", "No", "Partial"]
+          include_nr: true
 
   - section_name: "Participants"
     fields:
@@ -98,16 +117,14 @@ sections:
         help: "Record mean and SD separately for intervention and control arms"
       - label: "Female (%)"
         field_type: "baseline_categorical"
-        help: "Record percent female in each arm; leave blank if not reported"
+        help: "Record percent female in each arm; choose NR if not reported"
       - label: "BMI"
         field_type: "baseline_continuous"
-        help: "Record mean and SD in each arm"
       - label: "Baseline severity/score"
         field_type: "baseline_continuous"
-        help: "Record key baseline scale (e.g., disease severity) mean and SD per arm"
 
   - section_name: "Procedural Details"
-    fields: [] # Empty by default, customizable
+    fields: []
 
   - section_name: "Funding & Conflicts of Interest"
     fields:
@@ -115,3 +132,4 @@ sections:
         field_type: "textarea"
       - label: "Conflict of Interest"
         field_type: "textarea"
+
