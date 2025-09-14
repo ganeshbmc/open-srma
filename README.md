@@ -46,6 +46,7 @@ The project is divided into two main parts:
   - `HOST` (default `0.0.0.0`) and `PORT` (default `5000`)
   - `SECRET_KEY` (set a strong value in production)
   - `DATABASE_URL` (optional; if set, uses Postgres. If unset, falls back to SQLite in `/app/instance/srma.db`)
+  - `SESSION_COOKIE_SECURE` (default `true`), `SESSION_COOKIE_SAMESITE` (default `Lax`), `PREFERRED_URL_SCHEME` (default `https`)
 - Quick start: copy `.env.example` to `.env` and adjust values for your environment.
 - Development
   - Python entrypoint: `FLASK_DEBUG=1 python run.py`
@@ -56,6 +57,9 @@ The project is divided into two main parts:
   - Example WSGI command: `gunicorn -w 2 -k gthread -b 0.0.0.0:${PORT} wsgi:app`.
   - For SQLite persistence, mount a volume at `/app/instance`.
   - To use Postgres (e.g., Railway/Render/Heroku): set `DATABASE_URL` (e.g., `postgresql://user:pass@host:port/db`). The legacy `postgres://` scheme is accepted and auto-normalized.
+
+### 🔎 Health
+- Health endpoint: `GET /healthz` returns `{ ok, db_ok, db_backend }` to quickly confirm DB connectivity and backend selection.
 
 ### 📜 License
 [MIT License](LICENSE) – free to use, modify, and share.

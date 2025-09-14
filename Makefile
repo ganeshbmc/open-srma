@@ -39,7 +39,7 @@ run: $(BIN)/python
 
 # Run like production locally (gunicorn, single worker)
 run-prod: $(BIN)/python
-	$(DOTENV) FLASK_APP=run.py $(FLASK) db upgrade && gunicorn -w 1 -k gthread --threads 4 -b 0.0.0.0:8000 wsgi:app
+	$(DOTENV) FLASK_APP=run.py $(FLASK) db upgrade && gunicorn -w 2 -k gthread --threads 4 --timeout 60 --access-logfile - -b 0.0.0.0:8000 wsgi:app
 
 exports-clean:
 	@echo "No on-disk export artifacts are created by default; exports stream to client."
