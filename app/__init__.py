@@ -4,6 +4,7 @@ from flask_migrate import Migrate
 from flask_wtf import CSRFProtect
 from flask_login import LoginManager
 from sqlalchemy import event
+from sqlalchemy.engine import URL
 import json
 import os
 
@@ -13,13 +14,42 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a-secret-key')
 
 # Database configuration: prefer DATABASE_URL (e.g., Railway Postgres), fallback to SQLite
 os.makedirs(app.instance_path, exist_ok=True)
-database_url = os.environ.get('DATABASE_URL')
+def _resolve_database_url() -> str | None:
+    # Primary: explicit DATABASE_URL
+    url = os.environ.get('DATABASE_URL') or os.environ.get('RAILWAY_DATABASE_URL') or os.environ.get('POSTGRES_URL')
+    if url:
+        if url.startswith('postgres://'):
+            url = url.replace('postgres://', 'postgresql://', 1)
+        return url
+    # Secondary: construct from PG* env vars if present
+    pg_host = os.environ.get('PGHOST')
+    pg_db = os.environ.get('PGDATABASE')
+    pg_user = os.environ.get('PGUSER')
+    pg_pass = os.environ.get('PGPASSWORD')
+    pg_port = os.environ.get('PGPORT') or '5432'
+    if pg_host and pg_db and pg_user and pg_pass:
+        return str(
+            URL.create(
+                drivername='postgresql+psycopg2',
+                username=pg_user,
+                password=pg_pass,
+                host=pg_host,
+                port=int(pg_port) if str(pg_port).isdigit() else None,
+                database=pg_db,
+            )
+        )
+    return None
+
+database_url = _resolve_database_url()
 if database_url:
-    if database_url.startswith('postgres://'):
-        database_url = database_url.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 else:
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'srma.db')
+
+# Expose DB backend indicator for health checks
+app.config['DB_BACKEND'] = (
+    'postgresql' if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgresql') else 'sqlite'
+)
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
