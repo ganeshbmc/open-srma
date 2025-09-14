@@ -10,6 +10,23 @@ from app.utils import load_template_and_create_form_fields, load_template_from_y
 import json # Import json for handling dichotomous_outcome
 from pandas import DataFrame # Import pandas DataFrame
 
+# -------------------- Health endpoint (no auth) --------------------
+
+@app.route('/healthz')
+def healthz():
+    backend = app.config.get('DB_BACKEND', 'unknown')
+    try:
+        # Simple connectivity check
+        db.session.execute(db.text('SELECT 1'))
+        db_ok = True
+    except Exception:
+        db_ok = False
+    return jsonify({
+        'ok': True,
+        'db_ok': db_ok,
+        'db_backend': backend,
+    })
+
 # -------------------- RBAC helpers --------------------
 
 def is_admin() -> bool:
