@@ -8,7 +8,8 @@ import json
 import os
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'a-secret-key'
+# Use SECRET_KEY from environment in production; fallback for local dev
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a-secret-key')
 
 # Database configuration: prefer DATABASE_URL (e.g., Railway Postgres), fallback to SQLite
 os.makedirs(app.instance_path, exist_ok=True)
