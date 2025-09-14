@@ -41,9 +41,10 @@ This project includes a Makefile to streamline common developer tasks. Below are
 - run
   - Description: Start the Flask development server.
   - Run: `make run`
+  - Notes: `make run` sets `FLASK_DEBUG=1` to enable debug locally.
   - Alternatives:
-    - `python3 run.py`
-    - `export FLASK_APP=run.py && flask run` (uses Flask’s CLI)
+    - `FLASK_DEBUG=1 python3 run.py`
+    - `export FLASK_APP=run.py && export FLASK_ENV=development && flask run` (uses Flask’s CLI)
 
 - seed
   - Description: Seed a demo project ("Demo SRMA") with fields, outcomes, and studies for quick testing.

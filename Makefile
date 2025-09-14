@@ -33,7 +33,7 @@ migrate: $(BIN)/python
 	FLASK_APP=run.py $(FLASK) db upgrade
 
 run: $(BIN)/python
-	$(PYTHON) run.py
+	FLASK_DEBUG=1 $(PYTHON) run.py
 
 exports-clean:
 	@echo "No on-disk export artifacts are created by default; exports stream to client."

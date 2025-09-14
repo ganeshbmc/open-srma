@@ -39,6 +39,21 @@ The project is divided into two main parts:
 - **R (meta, metafor, rmarkdown/quarto)** — analysis and reporting
 - **Docker** — optional containerized deployment for reproducibility
 
+### 🚀 Running (Dev & Prod)
+- Environment variables
+  - `FLASK_APP=run.py` (Flask CLI context)
+  - `FLASK_ENV` (`development` for local dev) or `FLASK_DEBUG=1` to enable debug
+  - `HOST` (default `0.0.0.0`) and `PORT` (default `5000`)
+  - `SECRET_KEY` (set a strong value in production)
+- Development
+  - Python entrypoint: `FLASK_DEBUG=1 python run.py`
+  - Or Flask CLI: `export FLASK_APP=run.py && export FLASK_ENV=development && flask run --host=0.0.0.0 --port=5000`
+- Production
+  - The app binds to `0.0.0.0:${PORT}` and runs without debug when `FLASK_ENV`/`FLASK_DEBUG` are unset.
+  - Run DB migrations on start: `flask db upgrade` (requires `FLASK_APP=run.py`).
+  - Example WSGI command: `gunicorn -w 2 -k gthread -b 0.0.0.0:${PORT} wsgi:app`.
+  - For SQLite persistence, mount a volume at `/app/instance`.
+
 ### 📜 License
 [MIT License](LICENSE) – free to use, modify, and share.
 
