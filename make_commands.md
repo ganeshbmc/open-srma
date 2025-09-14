@@ -7,6 +7,7 @@ This project includes a Makefile to streamline common developer tasks. Below are
 - Optional virtual environment (recommended):
   - macOS/Linux: `python3 -m venv venv && source venv/bin/activate`
   - Windows (PowerShell): `python -m venv venv; .\\venv\\Scripts\\Activate.ps1`
+ - Optional `.env` file: place environment variables here (e.g., `DATABASE_URL`, `SECRET_KEY`). Make targets auto-load it.
 
 ## Targets and Alternatives
 
@@ -45,6 +46,11 @@ This project includes a Makefile to streamline common developer tasks. Below are
   - Alternatives:
     - `FLASK_DEBUG=1 python3 run.py`
     - `export FLASK_APP=run.py && export FLASK_ENV=development && flask run` (uses Flask’s CLI)
+
+- run-prod
+  - Description: Run locally like production (applies migrations, starts gunicorn on port 8000).
+  - Run: `make run-prod`
+  - Notes: Auto-loads `.env` if present (e.g., `DATABASE_URL`). Single worker + threads is friendly to SQLite.
 
 - seed
   - Description: Seed a demo project ("Demo SRMA") with fields, outcomes, and studies for quick testing.

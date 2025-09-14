@@ -6,8 +6,10 @@ BIN := $(VENV)/bin
 PIP := $(BIN)/pip
 FLASK := $(BIN)/flask
 PYTHON := $(BIN)/python
+# Load environment variables from .env if present
+DOTENV := set -a; [ -f .env ] && . ./.env; set +a;
 
-.PHONY: help setup install migrate run exports-clean seed seed-clean
+.PHONY: help setup install migrate run run-prod exports-clean seed seed-clean
 
 help:
 	@echo "Targets:"
@@ -30,17 +32,21 @@ install: $(BIN)/python
 	$(PIP) install -r requirements.txt
 
 migrate: $(BIN)/python
-	FLASK_APP=run.py $(FLASK) db upgrade
+	$(DOTENV) FLASK_APP=run.py $(FLASK) db upgrade
 
 run: $(BIN)/python
-	FLASK_DEBUG=1 $(PYTHON) run.py
+	$(DOTENV) FLASK_DEBUG=1 $(PYTHON) run.py
+
+# Run like production locally (gunicorn, single worker)
+run-prod: $(BIN)/python
+	$(DOTENV) FLASK_APP=run.py $(FLASK) db upgrade && gunicorn -w 1 -k gthread --threads 4 -b 0.0.0.0:8000 wsgi:app
 
 exports-clean:
 	@echo "No on-disk export artifacts are created by default; exports stream to client."
 	@echo "Nothing to clean."
 
 seed: $(BIN)/python
-	PYTHONPATH=. FLASK_APP=run.py $(PYTHON) misc/seed_demo.py
+	$(DOTENV) PYTHONPATH=. FLASK_APP=run.py $(PYTHON) misc/seed_demo.py
 
 seed-clean: $(BIN)/python
-	PYTHONPATH=. FLASK_APP=run.py $(PYTHON) misc/seed_clean.py
+	$(DOTENV) PYTHONPATH=. FLASK_APP=run.py $(PYTHON) misc/seed_clean.py

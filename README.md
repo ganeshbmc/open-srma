@@ -45,6 +45,8 @@ The project is divided into two main parts:
   - `FLASK_ENV` (`development` for local dev) or `FLASK_DEBUG=1` to enable debug
   - `HOST` (default `0.0.0.0`) and `PORT` (default `5000`)
   - `SECRET_KEY` (set a strong value in production)
+  - `DATABASE_URL` (optional; if set, uses Postgres. If unset, falls back to SQLite in `/app/instance/srma.db`)
+- Quick start: copy `.env.example` to `.env` and adjust values for your environment.
 - Development
   - Python entrypoint: `FLASK_DEBUG=1 python run.py`
   - Or Flask CLI: `export FLASK_APP=run.py && export FLASK_ENV=development && flask run --host=0.0.0.0 --port=5000`
@@ -53,9 +55,32 @@ The project is divided into two main parts:
   - Run DB migrations on start: `flask db upgrade` (requires `FLASK_APP=run.py`).
   - Example WSGI command: `gunicorn -w 2 -k gthread -b 0.0.0.0:${PORT} wsgi:app`.
   - For SQLite persistence, mount a volume at `/app/instance`.
+  - To use Postgres (e.g., Railway/Render/Heroku): set `DATABASE_URL` (e.g., `postgresql://user:pass@host:port/db`). The legacy `postgres://` scheme is accepted and auto-normalized.
 
 ### 📜 License
 [MIT License](LICENSE) – free to use, modify, and share.
+
+### ☁️ Deploying to Railway
+- What’s included
+  - `Procfile` with a production start command (migrations + gunicorn).
+  - `wsgi.py` exposing `app`.
+  - `requirements.txt` includes `gunicorn` and `psycopg2-binary`.
+- Steps
+  - Create a new Railway service from this repo (GitHub connect).
+  - Add variables under Service → Variables:
+    - `SECRET_KEY`: a strong random string.
+    - `DATABASE_URL`: PostgreSQL connection string (add Railway Postgres plugin or paste your own). If omitted, the app falls back to SQLite.
+  - Deploy. Railway supplies `PORT`; the Procfile binds to it and runs `flask db upgrade` automatically.
+- SQLite vs Postgres
+  - SQLite: attach a Volume and mount it at `/app/instance` to persist `srma.db`. Keep gunicorn to a single worker (already set in Procfile).
+  - Postgres: recommended for multi-user; you can increase gunicorn workers (e.g., `-w 2` or more) by editing the Procfile.
+- Scale and health
+  - For SQLite, keep 1 replica and `-w 1` to minimize lock contention.
+  - For Postgres, you can scale workers/replicas. Migrations run on boot via Procfile—avoid parallel boots running migrations at the same time.
+- Troubleshooting
+  - “No start command was found”: ensure `Procfile` is present; we use `web:` entry.
+  - DB errors on boot: verify `DATABASE_URL` or Volume mount and that `flask db upgrade` can connect.
+  - Logs: check Railway → Deployments → Logs for startup/migration messages.
 
 ### 🧪 Demo Accounts (for local development)
 If you run `make seed`, the script creates demo users and a sample project:
