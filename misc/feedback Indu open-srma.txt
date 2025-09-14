@@ -1,0 +1,11 @@
+Study id autofill
+Remove assessor NR
+Study design? Dropdown/options
+Unit of allocation- dropdown
+remove ethics approval yes/no
+Population description (hint)
+Study setting (hint)
+Method of recruitment remove
+remove withdrawals
+no. missing will be different for each outcome
+funder and conflicts will be mentioned last so keep it later
