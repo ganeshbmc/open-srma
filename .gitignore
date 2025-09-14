@@ -10,3 +10,4 @@ __pycache__/
 # Flask instance folder and local DB files
 instance/
 *.db
+.env
