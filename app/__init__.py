@@ -12,6 +12,18 @@ app = Flask(__name__)
 # Use SECRET_KEY from environment in production; fallback for local dev
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a-secret-key')
 
+# Cookie and URL security settings (configurable via env)
+def _env_bool(name: str, default: bool) -> bool:
+    val = os.environ.get(name)
+    if val is None:
+        return default
+    return str(val).lower() in ("1", "true", "yes", "on")
+
+app.config['SESSION_COOKIE_SECURE'] = _env_bool('SESSION_COOKIE_SECURE', True)
+app.config['REMEMBER_COOKIE_SECURE'] = app.config['SESSION_COOKIE_SECURE']
+app.config['SESSION_COOKIE_SAMESITE'] = os.environ.get('SESSION_COOKIE_SAMESITE', 'Lax')
+app.config['PREFERRED_URL_SCHEME'] = os.environ.get('PREFERRED_URL_SCHEME', 'https')
+
 # Database configuration: prefer DATABASE_URL (e.g., Railway Postgres), fallback to SQLite
 os.makedirs(app.instance_path, exist_ok=True)
 def _resolve_database_url() -> str | None:
