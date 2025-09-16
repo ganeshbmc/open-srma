@@ -201,6 +201,31 @@ def project_detail(project_id):
     else:
         role_label = ''
     pending_count = project.change_requests.filter_by(status='pending').count() if is_owner_or_admin else 0
+
+    # Resolve Study ID values for listing, if a field labeled "Study ID" exists
+    study_id_map = {}
+    try:
+        sid_field = (
+            CustomFormField.query
+            .filter_by(project_id=project.id)
+            .filter(db.func.lower(CustomFormField.label) == 'study id')
+            .order_by(CustomFormField.id.asc())
+            .first()
+        )
+        if sid_field and studies:
+            study_ids = [s.id for s in studies]
+            rows = (
+                StudyDataValue.query
+                .filter(StudyDataValue.form_field_id == sid_field.id)
+                .filter(StudyDataValue.study_id.in_(study_ids))
+                .all()
+            )
+            for r in rows:
+                if r and r.value:
+                    study_id_map[r.study_id] = r.value
+    except Exception:
+        study_id_map = {}
+
     return render_template(
         'project_detail.html',
         project=project,
@@ -211,6 +236,7 @@ def project_detail(project_id):
         pending_count=pending_count,
         is_owner_or_admin=is_owner_or_admin,
         role_label=role_label,
+        study_id_map=study_id_map,
     )
 
 
