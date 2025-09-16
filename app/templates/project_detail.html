@@ -55,7 +55,12 @@
             <div class="list-group-item d-flex justify-content-between align-items-center">
               <div>
                 <div class="fw-semibold">{{ study.title }}</div>
-                <div class="text-muted small">{{ study.author }}, {{ study.year }}</div>
+                {% set sid = study_id_map.get(study.id) if study_id_map else None %}
+                {% if sid %}
+                  <div class="text-muted small">{{ sid }}</div>
+                {% else %}
+                  <div class="text-muted small">{{ study.author }}, {{ study.year }}</div>
+                {% endif %}
               </div>
               <div>
                 <a href="{{ url_for('enter_data', project_id=project.id, study_id=study.id) }}" class="btn btn-sm btn-outline-primary">Enter Data</a>
