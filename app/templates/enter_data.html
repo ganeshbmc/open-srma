@@ -37,7 +37,12 @@
                                 {% endif %}
                             </label>
                             {% if field.field_type == 'text' %}
-                                <input class="form-control" type="text" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ existing_data[field.id] if field.id in existing_data else '' }}">
+                                {% set is_study_id = (field.label or '')|lower == 'study id' %}
+                                {% set prefill = existing_data.get(field.id) if existing_data.get(field.id) else (autofill_defaults.get(field.id) if is_study_id else '') %}
+                                <input class="form-control" type="text" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ prefill }}" {% if is_study_id and not is_owner_or_admin %}readonly{% endif %}>
+                                {% if is_study_id %}
+                                  <div class="form-text">Auto-filled as "Author et al, Year". {% if not is_owner_or_admin %}Only Owners/Admins can edit.{% endif %}</div>
+                                {% endif %}
                             {% elif field.field_type == 'textarea' %}
                                 <textarea class="form-control" id="field_{{ field.id }}" name="field_{{ field.id }}" rows="3">{{ existing_data[field.id] if field.id in existing_data else '' }}</textarea>
                             {% elif field.field_type == 'integer' %}

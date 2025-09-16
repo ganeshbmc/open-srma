@@ -959,6 +959,20 @@ def enter_data(project_id, study_id):
     # Get existing data values for static fields for this study
     existing_data = {dv.form_field_id: dv.value for dv in study.data_values}
 
+    # Prepare autofill defaults for certain fields (e.g., Study ID)
+    # Map: form_field_id -> default string to display when empty
+    autofill_defaults = {}
+    try:
+        default_study_id = f"{(study.author or '').strip()} et al, {study.year}"
+    except Exception:
+        default_study_id = None
+    if default_study_id:
+        for f in form_fields:
+            if (f.field_type == 'text') and ((f.label or '').strip().lower() == 'study id'):
+                # Only propose a default if no existing value
+                if not existing_data.get(f.id):
+                    autofill_defaults[f.id] = default_study_id
+
     # Get existing numerical outcome data for this study
     existing_numerical_outcomes_objects = study.numerical_outcomes.all()
     existing_numerical_outcomes = []
@@ -1046,12 +1060,33 @@ def enter_data(project_id, study_id):
             else:
                 value_str = request.form.get(field_name)
 
+            # Enforce RBAC for special fields
+            is_study_id_field = ((field.label or '').strip().lower() == 'study id') and (field.field_type == 'text')
+            if is_study_id_field and not is_owner_or_admin:
+                # Members cannot edit Study ID; enforce existing value or default
+                # Compute default and fall back to it only if no prior value
+                enforced = None
+                try:
+                    enforced = f"{(study.author or '').strip()} et al, {study.year}"
+                except Exception:
+                    enforced = None
+
             data_value = StudyDataValue.query.filter_by(study_id=study.id, form_field_id=field.id).first()
-            if data_value:
-                data_value.value = value_str
+            if is_study_id_field and not is_owner_or_admin:
+                # Keep existing value if present; otherwise set default
+                if data_value:
+                    # do not overwrite with posted value; only backfill if empty
+                    if not data_value.value and enforced:
+                        data_value.value = enforced
+                else:
+                    data_value = StudyDataValue(study_id=study.id, form_field_id=field.id, value=enforced)
+                    db.session.add(data_value)
             else:
-                data_value = StudyDataValue(study_id=study.id, form_field_id=field.id, value=value_str)
-                db.session.add(data_value)
+                if data_value:
+                    data_value.value = value_str
+                else:
+                    data_value = StudyDataValue(study_id=study.id, form_field_id=field.id, value=value_str)
+                    db.session.add(data_value)
         
         # Save numerical outcomes (dichotomous)
         # Gather submitted rows first; for members we will upsert per name
@@ -1195,6 +1230,7 @@ def enter_data(project_id, study_id):
         study=study,
         grouped_fields=grouped_fields,
         existing_data=existing_data,
+        autofill_defaults=autofill_defaults,
         existing_numerical_outcomes=existing_numerical_outcomes,
         existing_continuous_outcomes=existing_continuous_outcomes,
         role_label=role_label,
@@ -1363,6 +1399,10 @@ def autosave_study_data(project_id, study_id):
             .all()
         )
 
+        # Role to enforce per-field constraints
+        ms = get_membership_for(project.id)
+        is_owner_or_admin = bool(is_admin() or (ms and (ms.role or '').lower() == 'owner'))
+
         for db_field in db_fields:
             payload = by_id.get(db_field.id) or {}
             if db_field.field_type == 'dichotomous_outcome':
@@ -1422,12 +1462,30 @@ def autosave_study_data(project_id, study_id):
                 value = payload.get('value')
                 value_str = None if value is None or value == '' else str(value)
 
+            # Enforce: Study ID is read-only for members
+            is_study_id_field = ((db_field.label or '').strip().lower() == 'study id') and (db_field.field_type == 'text')
+            if is_study_id_field and not is_owner_or_admin:
+                # Ignore posted value; enforce existing or default
+                try:
+                    default_sid = f"{(study.author or '').strip()} et al, {study.year}"
+                except Exception:
+                    default_sid = None
+                value_str = None  # will be replaced with existing/default below
+
             sdv = StudyDataValue.query.filter_by(study_id=study.id, form_field_id=db_field.id).first()
-            if sdv:
-                sdv.value = value_str
+            if is_study_id_field and not is_owner_or_admin:
+                if sdv:
+                    if not sdv.value and default_sid:
+                        sdv.value = default_sid
+                else:
+                    sdv = StudyDataValue(study_id=study.id, form_field_id=db_field.id, value=default_sid)
+                    db.session.add(sdv)
             else:
-                sdv = StudyDataValue(study_id=study.id, form_field_id=db_field.id, value=value_str)
-                db.session.add(sdv)
+                if sdv:
+                    sdv.value = value_str
+                else:
+                    sdv = StudyDataValue(study_id=study.id, form_field_id=db_field.id, value=value_str)
+                    db.session.add(sdv)
 
         db.session.commit()
         return jsonify({'ok': True})
