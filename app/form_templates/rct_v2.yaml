@@ -11,6 +11,17 @@ sections:
         field_type: "text"
       - label: "DOI"
         field_type: "textarea"
+        help: |
+          Enter the Digital Object Identifier (DOI) in plain format only.
+          Do not include http://, https://, or doi.org/.
+
+          Correct format examples:
+          10.1001/jama.2021.12345
+          10.1093/eurheartj/ehaa123
+
+          Incorrect examples:
+          https://doi.org/10.1001/jama.2021.12345
+          doi:10.1001/jama.2021.12345
       - label: "Country"
         field_type: "text"
       - label: "Assessor"
