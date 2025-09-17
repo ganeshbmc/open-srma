@@ -14,6 +14,7 @@ import json
 import os
 import sys
 import urllib.request
+import textwrap
 
 
 GRAPHQL_ENDPOINT = "https://api.github.com/graphql"
@@ -52,8 +53,8 @@ query FetchProjectItems($login: String!, $number: Int!, $after: String) {
         nodes {
           content {
             __typename
-            ... on Issue { number title url state repository { nameWithOwner } }
-            ... on PullRequest { number title url state repository { nameWithOwner } }
+            ... on Issue { number title url state body repository { nameWithOwner } }
+            ... on PullRequest { number title url state body repository { nameWithOwner } }
           }
           fieldValues(first: 50) {
             nodes {
@@ -135,6 +136,7 @@ def main() -> int:
                 "title": content.get("title"),
                 "url": content.get("url"),
                 "state": content.get("state"),
+                "body": content.get("body") or "",
             })
         elif args.include_prs and content.get("__typename") == "PullRequest":
             out.append({
@@ -144,6 +146,7 @@ def main() -> int:
                 "title": content.get("title"),
                 "url": content.get("url"),
                 "state": content.get("state"),
+                "body": content.get("body") or "",
             })
 
     if not out:
@@ -152,7 +155,19 @@ def main() -> int:
 
     for r in out:
         prefix = r["repo"] + (" PR#" if r["kind"] == "PullRequest" else "#")
-        print(f"- {prefix}{r['number']} | {r['title']}\n  {r['url']} (state: {r['state']})\n")
+        body = (r.get("body") or "").rstrip()
+        if body:
+            # Preserve author formatting but indent subsequent lines for readability.
+            lines = textwrap.dedent(body).splitlines()
+        else:
+            lines = ["(no description)"]
+
+        print(f"- {prefix}{r['number']} | {r['title']}")
+        print(f"  {r['url']} (state: {r['state']})")
+        print(f"  Description: {lines[0] if lines else ''}")
+        for extra in lines[1:]:
+            print(f"               {extra}")
+        print()
     return 0
 
 
