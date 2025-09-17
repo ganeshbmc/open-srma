@@ -1,6 +1,7 @@
 import io # Import io for BytesIO
 import zipfile # Import zipfile
 import os
+from datetime import date
 from flask import render_template, flash, redirect, url_for, request, send_file, jsonify, abort # Import send_file, jsonify, abort
 from flask_login import current_user, login_user, logout_user, login_required
 from app import app, db
@@ -102,11 +103,7 @@ def register():
         return redirect(url_for('index'))
     form = RegisterForm()
     if form.validate_on_submit():
-        email = form.email.data.strip().lower()
-        if User.query.filter(db.func.lower(User.email) == email).first():
-            flash('Email already registered.', 'error')
-            return render_template('auth_register.html', form=form)
-        user = User(name=form.name.data.strip(), email=email)
+        user = User(name=form.name.data.strip(), email=form.email.data.lower())
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
@@ -124,10 +121,10 @@ def login():
         email = form.email.data.strip().lower()
         user = User.query.filter(db.func.lower(User.email) == email).first()
         if not user or not user.check_password(form.password.data):
-            flash('Invalid email or password.', 'error')
+            form.password.errors.append('Invalid email or password.')
             return render_template('auth_login.html', form=form)
         if not user.is_active:
-            flash('Account is disabled.', 'error')
+            form.email.errors.append('Account is disabled. Contact an administrator.')
             return render_template('auth_login.html', form=form)
         login_user(user)
         return redirect(url_for('index'))
@@ -1024,152 +1021,257 @@ def enter_data(project_id, study_id):
             'n_control': co.n_control,
         })
 
+    field_errors: dict[int, str] = {}
+    invalid_field_ids: set[int] = set()
+
     # Membership role for enforcement
     ms = get_membership_for(project.id)
     is_owner_or_admin = bool(is_admin() or (ms and (ms.role or '').lower() == 'owner'))
 
-    if request.method == 'POST':
-        # Save static form fields
-        for field in form_fields:
-            field_name = f'field_{field.id}'
-            if field.field_type == 'dichotomous_outcome':
-                events_key = f'{field_name}_events'
-                total_key = f'{field_name}_total'
-                
-                events = request.form.get(events_key, type=int)
-                total = request.form.get(total_key, type=int)
+    def _process_field_input(field):
+        field_name = f'field_{field.id}'
+        error_message = None
+        value_str = None
 
-                if events is not None and total is not None: 
-                    value_data = {'events': events, 'total': total}
-                    value_str = json.dumps(value_data)
-                else:
-                    value_str = None
-            elif field.field_type == 'baseline_continuous':
-                int_mean = request.form.get(f'{field_name}_int_mean')
-                int_sd = request.form.get(f'{field_name}_int_sd')
-                ctrl_mean = request.form.get(f'{field_name}_ctrl_mean')
-                ctrl_sd = request.form.get(f'{field_name}_ctrl_sd')
-                def to_float(v):
-                    if v is None or v == '':
-                        return None
-                    try:
-                        return float(v)
-                    except (TypeError, ValueError):
-                        return None
-                payload = {
-                    'intervention': {'mean': to_float(int_mean), 'sd': to_float(int_sd)},
-                    'control': {'mean': to_float(ctrl_mean), 'sd': to_float(ctrl_sd)},
-                }
-                # If all values are None, store None
-                if all(payload[g][k] is None for g in ('intervention','control') for k in ('mean','sd')):
-                    value_str = None
-                else:
-                    value_str = json.dumps(payload)
-            elif field.field_type == 'baseline_categorical':
-                int_pct = request.form.get(f'{field_name}_int_pct')
-                ctrl_pct = request.form.get(f'{field_name}_ctrl_pct')
-                def to_float_pct(v):
-                    if v is None or v == '':
-                        return None
-                    try:
-                        return float(v)
-                    except (TypeError, ValueError):
-                        return None
-                payload = {
-                    'intervention': {'percent': to_float_pct(int_pct)},
-                    'control': {'percent': to_float_pct(ctrl_pct)},
-                }
-                if payload['intervention']['percent'] is None and payload['control']['percent'] is None:
-                    value_str = None
-                else:
-                    value_str = json.dumps(payload)
-            elif field.field_type == 'select':
-                raw_value = request.form.get(field_name)
-                if raw_value == '':
-                    value_str = None
-                elif raw_value == 'Other (specify)':
-                    other_text = (request.form.get(f'{field_name}_other') or '').strip()
-                    value_str = other_text if other_text else raw_value
-                else:
-                    value_str = raw_value
+        if field.field_type == 'text':
+            raw = (request.form.get(field_name) or '').strip()
+            if not raw and field.required:
+                error_message = 'This field is required.'
+            value_str = raw or None
+
+        elif field.field_type == 'textarea':
+            raw = (request.form.get(field_name) or '').strip()
+            if not raw and field.required:
+                error_message = 'This field is required.'
+            value_str = raw or None
+
+        elif field.field_type == 'integer':
+            raw = (request.form.get(field_name) or '').strip()
+            if raw == '':
+                if field.required:
+                    error_message = 'This field is required.'
+                value_str = None
             else:
-                value_str = request.form.get(field_name)
-
-            # Enforce RBAC for special fields
-            is_study_id_field = ((field.label or '').strip().lower() == 'study id') and (field.field_type == 'text')
-            if is_study_id_field and not is_owner_or_admin:
-                # Members cannot edit Study ID; enforce existing value or default
-                # Compute default and fall back to it only if no prior value
-                enforced = None
                 try:
-                    enforced = f"{(study.author or '').strip()} et al, {study.year}"
-                except Exception:
-                    enforced = None
-
-            data_value = StudyDataValue.query.filter_by(study_id=study.id, form_field_id=field.id).first()
-            if is_study_id_field and not is_owner_or_admin:
-                # Keep existing value if present; otherwise set default
-                if data_value:
-                    # do not overwrite with posted value; only backfill if empty
-                    if not data_value.value and enforced:
-                        data_value.value = enforced
+                    ivalue = int(raw)
+                except ValueError:
+                    error_message = 'Enter a valid whole number.'
+                    ivalue = None
                 else:
-                    data_value = StudyDataValue(study_id=study.id, form_field_id=field.id, value=enforced)
-                    db.session.add(data_value)
+                    if ivalue < 0:
+                        error_message = 'Value must be zero or greater.'
+                value_str = str(ivalue) if ivalue is not None and error_message is None else None
+
+        elif field.field_type == 'date':
+            raw = (request.form.get(field_name) or '').strip()
+            if raw == '':
+                if field.required:
+                    error_message = 'This field is required.'
+                value_str = None
             else:
-                if data_value:
-                    data_value.value = value_str
+                try:
+                    date.fromisoformat(raw)
+                except ValueError:
+                    error_message = 'Enter a valid date (YYYY-MM-DD).'
+                    value_str = None
                 else:
-                    data_value = StudyDataValue(study_id=study.id, form_field_id=field.id, value=value_str)
-                    db.session.add(data_value)
-        
-        # Save numerical outcomes (dichotomous)
-        # Gather submitted rows first; for members we will upsert per name
-        outcome_indices = set()
-        for index_str in request.form.getlist('outcome_row_index'):
-            try:
-                index = int(index_str)
-                outcome_indices.add(index)
-            except ValueError:
-                pass # Not a valid outcome index
+                    value_str = raw
 
-        submitted_dich = []
-        for index in sorted(list(outcome_indices)):
-            outcome_name = (request.form.get(f'outcome_name_{index}') or '').strip()
-            if not outcome_name:
-                continue
-            submitted_dich.append({
-                'name': outcome_name,
-                'ei': request.form.get(f'events_intervention_{index}', type=int),
-                'ti': request.form.get(f'total_intervention_{index}', type=int),
-                'ec': request.form.get(f'events_control_{index}', type=int),
-                'tc': request.form.get(f'total_control_{index}', type=int),
-            })
+        elif field.field_type == 'select':
+            raw = (request.form.get(field_name) or '').strip()
+            other_raw = (request.form.get(f'{field_name}_other') or '').strip()
+            if raw == '':
+                if field.required:
+                    error_message = 'Please choose an option.'
+                value_str = None
+            elif raw == 'Other (specify)':
+                if other_raw:
+                    value_str = other_raw
+                else:
+                    if field.required:
+                        error_message = 'Please provide a value for "Other (specify)".'
+                    value_str = None
+            else:
+                value_str = raw
 
-        if is_owner_or_admin:
-            # Replace all for owners/admins
-            StudyNumericalOutcome.query.filter_by(study_id=study.id).delete()
-            for row in submitted_dich:
-                db.session.add(StudyNumericalOutcome(
-                    study_id=study.id,
-                    outcome_name=row['name'],
-                    events_intervention=row['ei'],
-                    total_intervention=row['ti'],
-                    events_control=row['ec'],
-                    total_control=row['tc'],
-                ))
+        elif field.field_type == 'select_member':
+            raw = (request.form.get(field_name) or '').strip()
+            if raw == '':
+                if field.required:
+                    error_message = 'Please choose an option.'
+                value_str = None
+            else:
+                value_str = raw
+
+        elif field.field_type == 'dichotomous_outcome':
+            events_raw = (request.form.get(f'{field_name}_events') or '').strip()
+            total_raw = (request.form.get(f'{field_name}_total') or '').strip()
+
+            if not events_raw and not total_raw:
+                if field.required:
+                    error_message = 'Events and total counts are required.'
+                value_str = None
+            else:
+                try:
+                    events_val = int(events_raw) if events_raw != '' else None
+                except ValueError:
+                    events_val = None
+                    error_message = 'Events must be a whole number.'
+                try:
+                    total_val = int(total_raw) if total_raw != '' else None
+                except ValueError:
+                    total_val = None
+                    error_message = 'Total must be a whole number.'
+
+                if error_message is None:
+                    if events_val is None or total_val is None:
+                        error_message = 'Provide both events and total.'
+                    elif events_val < 0:
+                        error_message = 'Events must be zero or greater.'
+                    elif total_val < 0:
+                        error_message = 'Total must be zero or greater.'
+                    elif events_val > total_val:
+                        error_message = 'Events cannot exceed total.'
+
+                if error_message is None:
+                    value_str = json.dumps({'events': events_val, 'total': total_val})
+                else:
+                    value_str = None
+
+        elif field.field_type == 'baseline_continuous':
+            int_mean = (request.form.get(f'{field_name}_int_mean') or '').strip()
+            int_sd = (request.form.get(f'{field_name}_int_sd') or '').strip()
+            ctrl_mean = (request.form.get(f'{field_name}_ctrl_mean') or '').strip()
+            ctrl_sd = (request.form.get(f'{field_name}_ctrl_sd') or '').strip()
+
+            def to_float(raw):
+                if raw == '':
+                    return None
+                try:
+                    return float(raw)
+                except ValueError:
+                    return 'error'
+
+            values = {
+                'intervention': {
+                    'mean': to_float(int_mean),
+                    'sd': to_float(int_sd),
+                },
+                'control': {
+                    'mean': to_float(ctrl_mean),
+                    'sd': to_float(ctrl_sd),
+                }
+            }
+
+            invalid = any(v == 'error' for group in values.values() for v in group.values())
+            provided = any(v not in (None, 'error') for group in values.values() for v in group.values())
+
+            if invalid:
+                error_message = 'Baseline values must be numeric.'
+            elif not provided and field.required:
+                error_message = 'At least one value is required.'
+            value_str = None if invalid or not provided else json.dumps(values)
+
+        elif field.field_type == 'baseline_categorical':
+            int_pct = (request.form.get(f'{field_name}_int_pct') or '').strip()
+            ctrl_pct = (request.form.get(f'{field_name}_ctrl_pct') or '').strip()
+
+            def to_float_pct(raw):
+                if raw == '':
+                    return None
+                try:
+                    value = float(raw)
+                except ValueError:
+                    return 'error'
+                if value < 0 or value > 100:
+                    return 'invalid_range'
+                return value
+
+            values = {
+                'intervention': {'percent': to_float_pct(int_pct)},
+                'control': {'percent': to_float_pct(ctrl_pct)},
+            }
+
+            invalid = any(v == 'error' for group in values.values() for v in group.values())
+            out_of_range = any(v == 'invalid_range' for group in values.values() for v in group.values())
+            provided = any(v not in (None, 'error', 'invalid_range') for group in values.values() for v in group.values())
+
+            if invalid:
+                error_message = 'Percentages must be numeric.'
+            elif out_of_range:
+                error_message = 'Percentages must be between 0 and 100.'
+            elif not provided and field.required:
+                error_message = 'At least one value is required.'
+            value_str = None if invalid or out_of_range or not provided else json.dumps(values)
+
         else:
-            # Upsert allowed rows; do not remove other existing outcomes
-            allowed_dich = set([ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='dichotomous').all() ])
-            names_to_apply = [r['name'] for r in submitted_dich if r['name'].lower() in allowed_dich]
-            if names_to_apply:
-                (StudyNumericalOutcome.query
-                    .filter_by(study_id=study.id)
-                    .filter(StudyNumericalOutcome.outcome_name.in_(names_to_apply))
-                    .delete(synchronize_session=False))
+            raw = request.form.get(field_name)
+            value_str = None if raw in (None, '') else raw
+
+        if field.required and (value_str is None or value_str == '') and error_message is None:
+            error_message = 'This field is required.'
+
+        return value_str, error_message
+
+    if request.method == 'POST':
+        processed_fields = []
+        for field in form_fields:
+            value_str, error_message = _process_field_input(field)
+            processed_fields.append((field, value_str))
+            if error_message:
+                field_errors[field.id] = error_message
+                invalid_field_ids.add(field.id)
+
+        if field_errors:
+            flash('Please correct the highlighted fields.', 'error')
+        else:
+            for field, value_str in processed_fields:
+                field_name = f'field_{field.id}'
+                is_study_id_field = ((field.label or '').strip().lower() == 'study id') and (field.field_type == 'text')
+                data_value = StudyDataValue.query.filter_by(study_id=study.id, form_field_id=field.id).first()
+
+                if is_study_id_field and not is_owner_or_admin:
+                    try:
+                        enforced = f"{(study.author or '').strip()} et al, {study.year}"
+                    except Exception:
+                        enforced = None
+                    if data_value:
+                        if not data_value.value and enforced:
+                            data_value.value = enforced
+                    else:
+                        data_value = StudyDataValue(study_id=study.id, form_field_id=field.id, value=enforced)
+                        db.session.add(data_value)
+                else:
+                    if data_value:
+                        data_value.value = value_str
+                    else:
+                        data_value = StudyDataValue(study_id=study.id, form_field_id=field.id, value=value_str)
+                        db.session.add(data_value)
+
+            outcome_indices = set()
+            for index_str in request.form.getlist('outcome_row_index'):
+                try:
+                    index = int(index_str)
+                    outcome_indices.add(index)
+                except ValueError:
+                    pass  # Not a valid outcome index
+
+            submitted_dich = []
+            for index in sorted(list(outcome_indices)):
+                outcome_name = (request.form.get(f'outcome_name_{index}') or '').strip()
+                if not outcome_name:
+                    continue
+                submitted_dich.append({
+                    'name': outcome_name,
+                    'ei': request.form.get(f'events_intervention_{index}', type=int),
+                    'ti': request.form.get(f'total_intervention_{index}', type=int),
+                    'ec': request.form.get(f'events_control_{index}', type=int),
+                    'tc': request.form.get(f'total_control_{index}', type=int),
+                })
+
+            if is_owner_or_admin:
+                StudyNumericalOutcome.query.filter_by(study_id=study.id).delete()
                 for row in submitted_dich:
-                    if row['name'].lower() not in allowed_dich:
-                        continue
                     db.session.add(StudyNumericalOutcome(
                         study_id=study.id,
                         outcome_name=row['name'],
@@ -1178,64 +1280,64 @@ def enter_data(project_id, study_id):
                         events_control=row['ec'],
                         total_control=row['tc'],
                     ))
+            else:
+                allowed_dich = set([ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='dichotomous').all() ])
+                names_to_apply = [r['name'] for r in submitted_dich if r['name'].lower() in allowed_dich]
+                if names_to_apply:
+                    (StudyNumericalOutcome.query
+                        .filter_by(study_id=study.id)
+                        .filter(StudyNumericalOutcome.outcome_name.in_(names_to_apply))
+                        .delete(synchronize_session=False))
+                    for row in submitted_dich:
+                        if row['name'].lower() not in allowed_dich:
+                            continue
+                        db.session.add(StudyNumericalOutcome(
+                            study_id=study.id,
+                            outcome_name=row['name'],
+                            events_intervention=row['ei'],
+                            total_intervention=row['ti'],
+                            events_control=row['ec'],
+                            total_control=row['tc'],
+                        ))
 
-        # Save continuous outcomes
-        cont_indices = set()
-        for index_str in request.form.getlist('cont_outcome_row_index'):
-            try:
-                cont_indices.add(int(index_str))
-            except ValueError:
-                pass
-        def to_float(v):
-            if v is None or v == '':
-                return None
-            try:
-                return float(v)
-            except (TypeError, ValueError):
-                return None
-        def to_int(v):
-            if v is None or v == '':
-                return None
-            try:
-                return int(v)
-            except (TypeError, ValueError):
-                return None
-        submitted_cont = []
-        for index in sorted(list(cont_indices)):
-            cname = (request.form.get(f'cont_outcome_name_{index}') or '').strip()
-            mi = to_float(request.form.get(f'cont_mean_intervention_{index}'))
-            sdi = to_float(request.form.get(f'cont_sd_intervention_{index}'))
-            ni = to_int(request.form.get(f'cont_n_intervention_{index}'))
-            mc = to_float(request.form.get(f'cont_mean_control_{index}'))
-            sdc = to_float(request.form.get(f'cont_sd_control_{index}'))
-            nc = to_int(request.form.get(f'cont_n_control_{index}'))
-            if cname:
-                submitted_cont.append({'name': cname, 'mi': mi, 'sdi': sdi, 'ni': ni, 'mc': mc, 'sdc': sdc, 'nc': nc})
+            cont_indices = set()
+            for index_str in request.form.getlist('cont_outcome_row_index'):
+                try:
+                    cont_indices.add(int(index_str))
+                except ValueError:
+                    pass
 
-        if is_owner_or_admin:
-            StudyContinuousOutcome.query.filter_by(study_id=study.id).delete()
-            for row in submitted_cont:
-                db.session.add(StudyContinuousOutcome(
-                    study_id=study.id,
-                    outcome_name=row['name'],
-                    mean_intervention=row['mi'],
-                    sd_intervention=row['sdi'],
-                    n_intervention=row['ni'],
-                    mean_control=row['mc'],
-                    sd_control=row['sdc'],
-                    n_control=row['nc'],
-                ))
-        else:
-            allowed_cont = set([ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='continuous').all() ])
-            names_to_apply_c = [r['name'] for r in submitted_cont if r['name'].lower() in allowed_cont]
-            if names_to_apply_c:
-                (StudyContinuousOutcome.query
-                    .filter_by(study_id=study.id)
-                    .filter(StudyContinuousOutcome.outcome_name.in_(names_to_apply_c))
-                    .delete(synchronize_session=False))
+            def to_float(v):
+                if v is None or v == '':
+                    return None
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    return None
+
+            def to_int(v):
+                if v is None or v == '':
+                    return None
+                try:
+                    return int(v)
+                except (TypeError, ValueError):
+                    return None
+
+            submitted_cont = []
+            for index in sorted(list(cont_indices)):
+                cname = (request.form.get(f'cont_outcome_name_{index}') or '').strip()
+                mi = to_float(request.form.get(f'cont_mean_intervention_{index}'))
+                sdi = to_float(request.form.get(f'cont_sd_intervention_{index}'))
+                ni = to_int(request.form.get(f'cont_n_intervention_{index}'))
+                mc = to_float(request.form.get(f'cont_mean_control_{index}'))
+                sdc = to_float(request.form.get(f'cont_sd_control_{index}'))
+                nc = to_int(request.form.get(f'cont_n_control_{index}'))
+                if cname:
+                    submitted_cont.append({'name': cname, 'mi': mi, 'sdi': sdi, 'ni': ni, 'mc': mc, 'sdc': sdc, 'nc': nc})
+
+            if is_owner_or_admin:
+                StudyContinuousOutcome.query.filter_by(study_id=study.id).delete()
                 for row in submitted_cont:
-                    if row['name'].lower() not in allowed_cont:
-                        continue
                     db.session.add(StudyContinuousOutcome(
                         study_id=study.id,
                         outcome_name=row['name'],
@@ -1246,10 +1348,31 @@ def enter_data(project_id, study_id):
                         sd_control=row['sdc'],
                         n_control=row['nc'],
                     ))
+            else:
+                allowed_cont = set([ (o.name or '').strip().lower() for o in project.outcomes.filter_by(outcome_type='continuous').all() ])
+                names_to_apply_c = [r['name'] for r in submitted_cont if r['name'].lower() in allowed_cont]
+                if names_to_apply_c:
+                    (StudyContinuousOutcome.query
+                        .filter_by(study_id=study.id)
+                        .filter(StudyContinuousOutcome.outcome_name.in_(names_to_apply_c))
+                        .delete(synchronize_session=False))
+                    for row in submitted_cont:
+                        if row['name'].lower() not in allowed_cont:
+                            continue
+                        db.session.add(StudyContinuousOutcome(
+                            study_id=study.id,
+                            outcome_name=row['name'],
+                            mean_intervention=row['mi'],
+                            sd_intervention=row['sdi'],
+                            n_intervention=row['ni'],
+                            mean_control=row['mc'],
+                            sd_control=row['sdc'],
+                            n_control=row['nc'],
+                        ))
 
-        db.session.commit()
-        flash('Study data saved successfully!')
-        return redirect(url_for('project_detail', project_id=project.id))
+            db.session.commit()
+            flash('Study data saved successfully!')
+            return redirect(url_for('project_detail', project_id=project.id))
 
     # Role label for UI badge
     if is_admin():
@@ -1288,6 +1411,8 @@ def enter_data(project_id, study_id):
         role_label=role_label,
         is_owner_or_admin=is_owner_or_admin,
         member_choices=member_choices,
+        field_errors=field_errors,
+        invalid_field_ids=invalid_field_ids,
     )
 
 
