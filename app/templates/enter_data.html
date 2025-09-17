@@ -42,13 +42,24 @@
                                 <input class="form-control" type="text" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ prefill }}" {% if is_study_id and not is_owner_or_admin %}readonly{% endif %}>
                                 {% if is_study_id %}
                                   <div class="form-text">Auto-filled as "Author et al, Year". {% if not is_owner_or_admin %}Only Owners/Admins can edit.{% endif %}</div>
+                                {% elif field.help_text %}
+                                  <div class="form-text">{{ field.help_text | replace('\n', '<br>') | safe }}</div>
                                 {% endif %}
                             {% elif field.field_type == 'textarea' %}
                                 <textarea class="form-control" id="field_{{ field.id }}" name="field_{{ field.id }}" rows="3">{{ existing_data[field.id] if field.id in existing_data else '' }}</textarea>
+                                {% if field.help_text %}
+                                  <div class="form-text">{{ field.help_text | replace('\n', '<br>') | safe }}</div>
+                                {% endif %}
                             {% elif field.field_type == 'integer' %}
                                 <input class="form-control" type="number" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ existing_data[field.id] if field.id in existing_data else '' }}">
+                                {% if field.help_text %}
+                                  <div class="form-text">{{ field.help_text | replace('\n', '<br>') | safe }}</div>
+                                {% endif %}
                             {% elif field.field_type == 'date' %}
                                 <input class="form-control" type="date" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ existing_data[field.id] if field.id in existing_data else '' }}">
+                                {% if field.help_text %}
+                                  <div class="form-text">{{ field.help_text | replace('\n', '<br>') | safe }}</div>
+                                {% endif %}
                             {% elif field.field_type == 'select' %}
                                 {% set opts = field.options | from_json if field.options else {} %}
                                 {% set choices = (opts.choices if opts and 'choices' in opts else []) %}
@@ -63,6 +74,9 @@
                                     <option value="NR" {{ 'selected' if current=='NR' else '' }}>NR (Not reported)</option>
                                   {% endif %}
                                 </select>
+                                {% if field.help_text %}
+                                  <div class="form-text">{{ field.help_text | replace('\n', '<br>') | safe }}</div>
+                                {% endif %}
                             {% elif field.field_type == 'select_member' %}
                                 {% set opts = field.options | from_json if field.options else {} %}
                                 {% set include_nr = (opts.include_nr if opts and 'include_nr' in opts else False) %}
@@ -90,6 +104,9 @@
                                     <option value="{{ current }}" selected>{{ current }}</option>
                                   {% endif %}
                                 </select>
+                                {% if field.help_text %}
+                                  <div class="form-text">{{ field.help_text | replace('\n', '<br>') | safe }}</div>
+                                {% endif %}
                             {% elif field.field_type == 'dichotomous_outcome' %}
                                 {# This field type is now deprecated for numerical outcomes, but kept for compatibility #}
                                 {% set value_data = existing_data[field.id] | from_json if field.id in existing_data and existing_data[field.id] else {'events': '', 'total': ''} %}
@@ -157,6 +174,9 @@
                                 </div>
                             {% else %}
                                 <p class="text-danger mb-0">Unsupported field type: {{ field.field_type }}</p>
+                            {% endif %}
+                            {% if field.help_text and field.field_type in ['baseline_continuous', 'baseline_categorical', 'dichotomous_outcome'] %}
+                              <div class="form-text mt-2">{{ field.help_text | replace('\n', '<br>') | safe }}</div>
                             {% endif %}
                         </div>
                     {% endfor %}
