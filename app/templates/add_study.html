@@ -10,16 +10,25 @@
                 {{ form.hidden_tag() }}
                 <div class="mb-3">
                     {{ form.title.label(class="form-label") }}
-                    {{ form.title(class="form-control") }}
+                    {{ form.title(class="form-control" + (' is-invalid' if form.title.errors else ''), maxlength="300", required=True, autofocus=True) }}
+                    {% for error in form.title.errors %}
+                      <div class="invalid-feedback d-block">{{ error }}</div>
+                    {% endfor %}
                 </div>
                 <div class="mb-3">
                     {{ form.author.label(class="form-label") }}
-                    {{ form.author(class="form-control", placeholder="e.g., Smith") }}
+                    {{ form.author(class="form-control" + (' is-invalid' if form.author.errors else ''), placeholder="e.g., Smith", maxlength="120", required=True) }}
                     <div class="form-text">Last name of first author is the standard practice</div>
+                    {% for error in form.author.errors %}
+                      <div class="invalid-feedback d-block">{{ error }}</div>
+                    {% endfor %}
                 </div>
                 <div class="mb-3">
                     {{ form.year.label(class="form-label") }}
-                    {{ form.year(class="form-control") }}
+                    {{ form.year(class="form-control" + (' is-invalid' if form.year.errors else ''), required=True, min="1800", max="2100") }}
+                    {% for error in form.year.errors %}
+                      <div class="invalid-feedback d-block">{{ error }}</div>
+                    {% endfor %}
                 </div>
                 {{ form.submit(class="btn btn-primary") }}
             </form>
