@@ -64,16 +64,26 @@
                                 {% set opts = field.options | from_json if field.options else {} %}
                                 {% set choices = (opts.choices if opts and 'choices' in opts else []) %}
                                 {% set include_nr = (opts.include_nr if opts and 'include_nr' in opts else False) %}
-                                {% set current = existing_data[field.id] if field.id in existing_data else '' %}
-                                <select class="form-select" id="field_{{ field.id }}" name="field_{{ field.id }}">
+                                {% set has_other = 'Other (specify)' in choices %}
+                                {% set current_raw = existing_data[field.id] if field.id in existing_data else '' %}
+                                {% set select_value = current_raw %}
+                                {% set other_prefill = '' %}
+                                {% if has_other and current_raw and current_raw not in choices and current_raw != 'NR' %}
+                                  {% set select_value = 'Other (specify)' %}
+                                  {% set other_prefill = current_raw %}
+                                {% endif %}
+                                <select class="form-select{% if has_other %} select-with-other{% endif %}" id="field_{{ field.id }}" name="field_{{ field.id }}" {% if has_other %}data-other-input="field_{{ field.id }}_other"{% endif %}>
                                   <option value="">-- Select --</option>
                                   {% for c in choices %}
-                                    <option value="{{ c }}" {{ 'selected' if current==c else '' }}>{{ c }}</option>
+                                    <option value="{{ c }}" {{ 'selected' if select_value==c else '' }}>{{ c }}</option>
                                   {% endfor %}
                                   {% if include_nr %}
-                                    <option value="NR" {{ 'selected' if current=='NR' else '' }}>NR (Not reported)</option>
+                                    <option value="NR" {{ 'selected' if select_value=='NR' else '' }}>NR (Not reported)</option>
                                   {% endif %}
                                 </select>
+                                {% if has_other %}
+                                  <input type="text" class="form-control mt-2 other-text-input" id="field_{{ field.id }}_other" name="field_{{ field.id }}_other" value="{{ other_prefill }}" placeholder="Please specify" {% if select_value != 'Other (specify)' %}style="display:none;"{% endif %}>
+                                {% endif %}
                                 {% if field.help_text %}
                                   <div class="form-text">{{ field.help_text | replace('\n', '<br>') | safe }}</div>
                                 {% endif %}
@@ -310,6 +320,24 @@
           })
         });
 
+        document.querySelectorAll('.select-with-other').forEach(function(selectEl) {
+          const otherInputId = selectEl.getAttribute('data-other-input');
+          if (!otherInputId) return;
+          const otherInput = document.getElementById(otherInputId);
+          const toggleOther = function () {
+            if (selectEl.value === 'Other (specify)') {
+              if (otherInput) {
+                otherInput.style.display = '';
+              }
+            } else if (otherInput) {
+              otherInput.style.display = 'none';
+              otherInput.value = '';
+            }
+          };
+          selectEl.addEventListener('change', toggleOther);
+          toggleOther();
+        });
+
         let numericalOutcomeCount = 0;
         const existingNumericalOutcomes = {{ existing_numerical_outcomes | tojson }}; // Passed from Flask
         let continuousOutcomeCount = 0;
@@ -358,7 +386,7 @@
             const inputs = container ? container.querySelectorAll('input, textarea') : [];
             const map = new Map();
             const fieldIdFrom = (name) => {
-                const m = name && name.match(/^field_(\d+)(?:_(events|total|int_mean|int_sd|ctrl_mean|ctrl_sd|int_pct|ctrl_pct))?$/);
+                const m = name && name.match(/^field_(\d+)(?:_(events|total|int_mean|int_sd|ctrl_mean|ctrl_sd|int_pct|ctrl_pct|other))?$/);
                 return m ? { id: parseInt(m[1], 10), part: m[2] || null } : null;
             };
             inputs.forEach((inp) => {
@@ -382,6 +410,8 @@
                     cur.int_pct = inp.value;
                 } else if (meta.part === 'ctrl_pct') {
                     cur.ctrl_pct = inp.value;
+                } else if (meta.part === 'other') {
+                    cur.other = inp.value;
                 } else {
                     cur.value = inp.value;
                 }
