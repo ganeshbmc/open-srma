@@ -1083,6 +1083,15 @@ def enter_data(project_id, study_id):
                     value_str = None
                 else:
                     value_str = json.dumps(payload)
+            elif field.field_type == 'select':
+                raw_value = request.form.get(field_name)
+                if raw_value == '':
+                    value_str = None
+                elif raw_value == 'Other (specify)':
+                    other_text = (request.form.get(f'{field_name}_other') or '').strip()
+                    value_str = other_text if other_text else raw_value
+                else:
+                    value_str = raw_value
             else:
                 value_str = request.form.get(field_name)
 
@@ -1501,6 +1510,15 @@ def autosave_study_data(project_id, study_id):
                     value_str = None
                 else:
                     value_str = json.dumps(value_obj)
+            elif db_field.field_type == 'select':
+                value = payload.get('value')
+                other_text = (payload.get('other') or '').strip()
+                if value == 'Other (specify)' and other_text:
+                    value_str = other_text
+                elif value is None or value == '':
+                    value_str = None
+                else:
+                    value_str = str(value)
             else:
                 value = payload.get('value')
                 value_str = None if value is None or value == '' else str(value)

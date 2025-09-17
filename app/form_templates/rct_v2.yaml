@@ -33,14 +33,48 @@ sections:
   - section_name: "Study Characteristics"
     fields:
       - label: "Study design"
-        field_type: "text"
+        field_type: "select"
+        options:
+          choices:
+            - "Parallel-group RCT"
+            - "Crossover RCT"
+            - "Cluster RCT"
+            - "Factorial RCT"
+            - "Adaptive RCT"
+            - "Stepped-wedge RCT"
+            - "Pragmatic RCT"
+            - "Pilot/Feasibility RCT"
+            - "Registry-based RCT"
+            - "Platform/Master protocol RCT"
+            - "Cluster crossover RCT"
+            - "Hybrid/Other (specify)"
+            - "Quasi-randomized trial"
+            - "Non-randomized controlled trial"
+            - "Observational study"
+            - "Case series / Case report"
+            - "Other (specify)"
+          include_nr: true
       - label: "Randomization type"
         field_type: "select"
         options:
-          choices: ["Simple", "Block", "Stratified", "Cluster", "Adaptive"]
+          choices: ["Simple", "Block", "Stratified", "Cluster", "Adaptive", "Other (specify)"]
           include_nr: true
       - label: "Unit of allocation"
-        field_type: "text"
+        field_type: "select"
+        options:
+          choices:
+            - "Individual participant"
+            - "Paired individuals"
+            - "Hospital/Clinic/Practice"
+            - "Ward/Unit/Department"
+            - "Physician/Provider"
+            - "Geographic area/Community"
+            - "Family/Household"
+            - "Class/School"
+            - "Crossover within individual"
+            - "Pair of clusters"
+            - "Other (specify)"
+          include_nr: true
       - label: "Start Date"
         field_type: "date"
       - label: "End Date"
@@ -111,7 +145,14 @@ sections:
   - section_name: "Study Size & Analysis"
     fields:
       - label: "Sample Size Estimation"
-        field_type: "text"
+        field_type: "select"
+        options:
+          choices:
+            - "Reported & Adequately Described"
+            - "Reported but Not Adequately Described"
+            - "Not Reported"
+            - "Not Applicable (e.g., pilot trial)"
+          include_nr: true
       - label: "Analysis Type (e.g., ITT)"
         field_type: "text"
       - label: "No. missing (Intervention)"
