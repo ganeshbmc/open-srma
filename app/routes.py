@@ -1250,6 +1250,23 @@ def enter_data(project_id, study_id):
     else:
         role_label = ''
 
+    member_choices = []
+    memberships = (
+        project.memberships
+        .join(User, User.id == ProjectMembership.user_id)
+        .order_by(User.name.asc())
+        .all()
+    )
+    for membership in memberships:
+        name = (membership.user.name or '').strip()
+        email = (membership.user.email or '').strip()
+        display = f"{name} <{email}>".strip()
+        member_choices.append({
+            'value': display,
+            'label': display,
+            'role': (membership.role or '').lower(),
+        })
+
     return render_template(
         'enter_data.html',
         project=project,
@@ -1261,7 +1278,7 @@ def enter_data(project_id, study_id):
         existing_continuous_outcomes=existing_continuous_outcomes,
         role_label=role_label,
         is_owner_or_admin=is_owner_or_admin,
-        member_display_choices=[f"{ms.user.name} <{ms.user.email}>" for ms in project.memberships.join(User, User.id == ProjectMembership.user_id).order_by(User.name.asc()).all()],
+        member_choices=member_choices,
     )
 
 

@@ -9,16 +9,15 @@ sections:
     fields:
       - label: "Study ID"
         field_type: "text"
-      - label: "Reference citation"
+      - label: "DOI"
         field_type: "textarea"
       - label: "Country"
         field_type: "text"
       - label: "Assessor"
         field_type: "select_member"
-        help: "Select the assessor from project members/owners; choose NR if not reported."
+        help: "Select the assessor from project members or owners."
         options:
           roles: ["owner", "member"]
-          include_nr: true
 
   - section_name: "Study Characteristics"
     fields:
@@ -31,11 +30,6 @@ sections:
           include_nr: true
       - label: "Unit of allocation"
         field_type: "text"
-      - label: "Ethical approval obtained"
-        field_type: "select"
-        options:
-          choices: ["Yes", "No"]
-          include_nr: true
       - label: "Start Date"
         field_type: "date"
       - label: "End Date"
@@ -70,18 +64,20 @@ sections:
     fields:
       - label: "Population description"
         field_type: "textarea"
+        help: |
+          Summarize the main study population and mention any important subpopulations within the trial. Focus on how participants are grouped in the study context (not detailed inclusion/exclusion criteria).
+          Example: Patients undergoing CAG and/or PCI
       - label: "Setting"
         field_type: "textarea"
+        help: |
+          Indicate whether the study was single-centre or multicentre, and add brief context such as country or type of facility if reported.
+          Examples: Multi-centre; Single-centre tertiary hospital, India
       - label: "Inclusion criteria"
         field_type: "textarea"
       - label: "Exclusion criteria"
         field_type: "textarea"
-      - label: "Method of recruitment"
-        field_type: "text"
       - label: "Total number randomised"
         field_type: "integer"
-      - label: "Withdrawals and exclusions"
-        field_type: "textarea"
 
   - section_name: "Intervention and Control Details"
     fields:
@@ -107,7 +103,9 @@ sections:
         field_type: "text"
       - label: "Analysis Type (e.g., ITT)"
         field_type: "text"
-      - label: "No. missing"
+      - label: "No. missing (Intervention)"
+        field_type: "integer"
+      - label: "No. missing (Control)"
         field_type: "integer"
 
   - section_name: "Patient Baseline Characteristics"
@@ -133,3 +131,8 @@ sections:
       - label: "Conflict of Interest"
         field_type: "textarea"
 
+  - section_name: "General Comments"
+    fields:
+      - label: "Comments"
+        field_type: "textarea"
+        help: "Use for general notes, clarifications, or context not captured elsewhere."

@@ -64,13 +64,31 @@
                                   {% endif %}
                                 </select>
                             {% elif field.field_type == 'select_member' %}
+                                {% set opts = field.options | from_json if field.options else {} %}
+                                {% set include_nr = (opts.include_nr if opts and 'include_nr' in opts else False) %}
+                                {% set allowed_roles = (opts.roles if opts and 'roles' in opts else []) %}
+                                {% set allowed_roles_lower = allowed_roles | map('lower') | list %}
                                 {% set current = existing_data[field.id] if field.id in existing_data else '' %}
+                                {% set ns = namespace(match_found=False) %}
+                                {% if (field.label or '')|lower == 'assessor' %}
+                                  {% set include_nr = False %}
+                                {% endif %}
                                 <select class="form-select" id="field_{{ field.id }}" name="field_{{ field.id }}">
                                   <option value="">-- Select --</option>
-                                  {% for m in member_display_choices %}
-                                    <option value="{{ m }}" {{ 'selected' if current==m else '' }}>{{ m }}</option>
+                                  {% for member in member_choices %}
+                                    {% set member_role = member.role if member.role else '' %}
+                                    {% if (not allowed_roles_lower) or (member_role in allowed_roles_lower) %}
+                                      {% if current==member.value %}{% set ns.match_found = True %}{% endif %}
+                                      <option value="{{ member.value }}" {{ 'selected' if current==member.value else '' }}>{{ member.label }}</option>
+                                    {% endif %}
                                   {% endfor %}
-                                  <option value="NR" {{ 'selected' if current=='NR' else '' }}>NR (Not reported)</option>
+                                  {% if include_nr %}
+                                    {% if current=='NR' %}{% set ns.match_found = True %}{% endif %}
+                                    <option value="NR" {{ 'selected' if current=='NR' else '' }}>NR (Not reported)</option>
+                                  {% endif %}
+                                  {% if current and not ns.match_found %}
+                                    <option value="{{ current }}" selected>{{ current }}</option>
+                                  {% endif %}
                                 </select>
                             {% elif field.field_type == 'dichotomous_outcome' %}
                                 {# This field type is now deprecated for numerical outcomes, but kept for compatibility #}
