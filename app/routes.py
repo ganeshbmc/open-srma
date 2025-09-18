@@ -10,7 +10,7 @@ from flask_login import current_user, login_user, logout_user, login_required
 from app import app, db
 from app.forms import ProjectForm, StudyForm, CustomFormFieldForm, OutcomeForm, RegisterForm, LoginForm, AddMemberForm, ForgotPasswordForm, ResetPasswordForm
 from app.models import Project, Study, CustomFormField, StudyDataValue, StudyNumericalOutcome, ProjectOutcome, StudyContinuousOutcome, User, ProjectMembership, FormChangeRequest, PasswordResetToken # Import new models
-from app.utils import load_template_and_create_form_fields, load_template_from_yaml_content # Import the new utility functions
+from app.utils import load_template_and_create_form_fields, load_template_from_yaml_content, send_password_reset_email # Import the new utility functions
 import json # Import json for handling dichotomous_outcome
 from pandas import DataFrame # Import pandas DataFrame
 
@@ -173,6 +173,7 @@ def forgot_password():
     form = ForgotPasswordForm()
     issued_token = None
     submitted = False
+    email_sent = False
     if form.validate_on_submit():
         submitted = True
         email = (form.email.data or '').strip().lower()
@@ -184,11 +185,14 @@ def forgot_password():
             prt = PasswordResetToken(user_id=user.id, token_hash=token_hash, expires_at=expires_at)
             db.session.add(prt)
             db.session.commit()
-            issued_token = raw_token
+            reset_url = url_for('reset_password', token=raw_token, _external=True)
+            email_sent = send_password_reset_email(user, reset_url)
+            if not email_sent:
+                issued_token = raw_token
         else:
             # Commit to keep timing similar even when user not found
             db.session.commit()
-    return render_template('auth_forgot_password.html', form=form, submitted=submitted, issued_token=issued_token)
+    return render_template('auth_forgot_password.html', form=form, submitted=submitted, issued_token=issued_token, email_sent=email_sent)
 
 
 @app.route('/reset_password/<token>', methods=['GET', 'POST'])
