@@ -19,10 +19,30 @@ def _env_bool(name: str, default: bool) -> bool:
         return default
     return str(val).lower() in ("1", "true", "yes", "on")
 
+
+def _env_int(name: str, default: int) -> int:
+    val = os.environ.get(name)
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except ValueError:
+        return default
+
 app.config['SESSION_COOKIE_SECURE'] = _env_bool('SESSION_COOKIE_SECURE', True)
 app.config['REMEMBER_COOKIE_SECURE'] = app.config['SESSION_COOKIE_SECURE']
 app.config['SESSION_COOKIE_SAMESITE'] = os.environ.get('SESSION_COOKIE_SAMESITE', 'Lax')
 app.config['PREFERRED_URL_SCHEME'] = os.environ.get('PREFERRED_URL_SCHEME', 'https')
+
+# Outbound email configuration (optional)
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
+app.config['MAIL_PORT'] = _env_int('MAIL_PORT', 587)
+app.config['MAIL_USE_TLS'] = _env_bool('MAIL_USE_TLS', True)
+app.config['MAIL_USE_SSL'] = _env_bool('MAIL_USE_SSL', False)
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_FROM'] = os.environ.get('MAIL_FROM') or app.config['MAIL_USERNAME']
+app.config['MAIL_SUPPRESS_SEND'] = _env_bool('MAIL_SUPPRESS_SEND', app.debug or app.testing)
 
 # Database configuration: prefer DATABASE_URL (e.g., Railway Postgres), fallback to SQLite
 os.makedirs(app.instance_path, exist_ok=True)

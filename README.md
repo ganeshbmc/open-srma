@@ -61,6 +61,14 @@ The project is divided into two main parts:
 ### 🔎 Health
 - Health endpoint: `GET /healthz` returns `{ ok, db_ok, db_backend }` to quickly confirm DB connectivity and backend selection.
 
+### ✍️ Data Entry Notes
+- Study ID autofill & RBAC
+  - Study ID is auto-filled on the data entry page as "Author et al, Year" based on the study’s `author` and `year`.
+  - Owners/Admins can edit Study ID; Members see it read-only.
+  - Server enforces this on autosave and full save; member edits are ignored and an empty value is backfilled with the default.
+  - The project’s study list displays the stored Study ID when available (falls back to "Author, Year").
+  - This behavior applies when the project’s form includes a text field labeled exactly "Study ID".
+
 ### 📜 License
 [MIT License](LICENSE) – free to use, modify, and share.
 
