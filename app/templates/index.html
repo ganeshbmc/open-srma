@@ -11,12 +11,17 @@
         <div class="list-group list-group-flush">
           {% for project in projects %}
             <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="{{ url_for('project_detail', project_id=project.id) }}">
-              <span>
-                {{ project.name }}
-                {% if roles_by_project and roles_by_project.get(project.id) %}
-                  <span class="badge text-bg-light ms-2">{{ roles_by_project.get(project.id) }}</span>
+              <div>
+                <div class="d-flex align-items-center gap-2 fw-semibold">
+                  <span>{{ project.name }}</span>
+                  {% if roles_by_project and roles_by_project.get(project.id) %}
+                    <span class="badge text-bg-light">{{ roles_by_project.get(project.id) }}</span>
+                  {% endif %}
+                </div>
+                {% if project.created_at %}
+                  <div class="text-muted small mt-1">Created on {{ project.created_at.strftime('%b %d, %Y') }}</div>
                 {% endif %}
-              </span>
+              </div>
               <span class="text-muted small">View</span>
             </a>
           {% endfor %}

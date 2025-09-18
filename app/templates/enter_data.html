@@ -583,6 +583,9 @@
         }
 
         function removeNumericalOutcome(id) {
+            if (!confirm('Remove this outcome row? Unsaved values for this row will be lost.')) {
+                return;
+            }
             const outcomeToRemove = document.getElementById(`numerical-outcome-row-${id}`);
             if (outcomeToRemove) {
                 outcomeToRemove.remove();
@@ -671,6 +674,9 @@
         }
 
         function removeContinuousOutcome(id) {
+            if (!confirm('Remove this continuous outcome row? Unsaved values for this row will be lost.')) {
+                return;
+            }
             const row = document.getElementById(`continuous-outcome-row-${id}`);
             if (row) row.remove();
             scheduleAutosave('continuous_outcomes', 'continuous_outcomes');

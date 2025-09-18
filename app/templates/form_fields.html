@@ -63,7 +63,7 @@
                     <button class="btn btn-sm btn-outline-secondary" type="submit" title="Move Down">↓</button>
                   </form>
                   <a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit_form_field', project_id=project.id, field_id=f.id) }}">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{{ url_for('delete_form_field', project_id=project.id, field_id=f.id) }}" {% if not (current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first())) %}data-requires-reason="true"{% endif %}>Delete</button>
+                  <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{{ url_for('delete_form_field', project_id=project.id, field_id=f.id) }}" data-confirm-message="Delete field &quot;{{ f.label }}&quot;? This action cannot be undone." data-confirm-title="Delete Field" {% if not (current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first())) %}data-requires-reason="true"{% endif %}>Delete</button>
                 </td>
               </tr>
               {% endfor %}
@@ -91,10 +91,7 @@
                 <span class="fw-semibold">{{ o.name }}</span>
                 <span class="badge text-bg-light ms-2">{{ o.outcome_type }}</span>
               </div>
-              <form method="POST" action="{{ url_for('delete_project_outcome', project_id=project.id, outcome_id=o.id) }}" {% if not (current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first())) %}data-requires-reason="true"{% endif %}>
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-              </form>
+              <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{{ url_for('delete_project_outcome', project_id=project.id, outcome_id=o.id) }}" data-confirm-message="Delete outcome &quot;{{ o.name }}&quot;?" data-confirm-title="Delete Outcome" {% if not (current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first())) %}data-requires-reason="true"{% endif %}>Delete</button>
             </li>
           {% endfor %}
         </ul>
@@ -131,8 +128,8 @@
           <h5 class="modal-title" id="confirmDeleteModalLabel">Confirm Delete</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body">
-          Are you sure you want to delete this field? This action cannot be undone.
+        <div class="modal-body" id="confirmDeleteMessage">
+          Are you sure you want to delete this item? This action cannot be undone.
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -154,6 +151,16 @@
         const url = button.getAttribute('data-delete-url');
         const form = document.getElementById('confirmDeleteForm');
         form.setAttribute('action', url);
+        const title = button.getAttribute('data-confirm-title') || 'Confirm Delete';
+        const message = button.getAttribute('data-confirm-message') || 'Are you sure you want to delete this item?';
+        const titleEl = document.getElementById('confirmDeleteModalLabel');
+        const messageEl = document.getElementById('confirmDeleteMessage');
+        if (titleEl) {
+          titleEl.textContent = title;
+        }
+        if (messageEl) {
+          messageEl.innerHTML = message;
+        }
         // If member, prompt a reason and set hidden field
         const requires = button.hasAttribute('data-requires-reason');
         const reasonEl = document.getElementById('deleteFieldReason');
