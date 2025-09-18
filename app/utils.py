@@ -3,6 +3,10 @@ from app import db
 from app.models import CustomFormField
 import json
 import os
+import smtplib
+import ssl
+from email.message import EmailMessage
+from flask import current_app
 
 ALLOWED_FIELD_TYPES = {
     'text', 'textarea', 'integer', 'date',
@@ -101,3 +105,73 @@ def load_template_from_yaml_content(project_id, yaml_text: str):
         raise ValueError('YAML must define a top-level "sections" list')
     _validate_template_data(template_data)
     _create_fields_from_template_data(project_id, template_data)
+
+
+def _build_mail_connection(app):
+    server = app.config.get('MAIL_SERVER')
+    if not server or app.config.get('MAIL_SUPPRESS_SEND'):
+        return None, None
+    port = app.config.get('MAIL_PORT') or 587
+    use_ssl = bool(app.config.get('MAIL_USE_SSL'))
+    use_tls = bool(app.config.get('MAIL_USE_TLS')) and not use_ssl
+    username = app.config.get('MAIL_USERNAME')
+    password = app.config.get('MAIL_PASSWORD')
+
+    if use_ssl:
+        context = ssl.create_default_context()
+        conn = smtplib.SMTP_SSL(server, port, context=context, timeout=20)
+    else:
+        conn = smtplib.SMTP(server, port, timeout=20)
+        if use_tls:
+            context = ssl.create_default_context()
+            conn.starttls(context=context)
+
+    if username and password:
+        conn.login(username, password)
+    return conn, username
+
+
+def send_email(subject: str, recipients: list[str], body: str) -> bool:
+    app = current_app
+    if not recipients:
+        return False
+    if app.config.get('MAIL_SUPPRESS_SEND'):
+        app.logger.info('MAIL_SUPPRESS_SEND is enabled; skipping email send.')
+        return False
+    conn, fallback_sender = _build_mail_connection(app)
+    if not conn:
+        app.logger.warning('Mail server not configured; unable to send email.')
+        return False
+    try:
+        sender = app.config.get('MAIL_FROM') or fallback_sender
+        if not sender:
+            app.logger.warning('MAIL_FROM not configured and no login user; skipping email send.')
+            return False
+        msg = EmailMessage()
+        msg['Subject'] = subject
+        msg['From'] = sender
+        msg['To'] = ', '.join(recipients)
+        msg.set_content(body)
+        conn.send_message(msg)
+        return True
+    except Exception as exc:
+        app.logger.exception('Failed to send email: %s', exc)
+        return False
+    finally:
+        try:
+            conn.quit()
+        except Exception:
+            pass
+
+
+def send_password_reset_email(user, reset_url: str) -> bool:
+    app = current_app
+    subject = 'Reset your open-srma password'
+    body = (
+        f"Hello {user.name},\n\n"
+        "We received a request to reset your open-srma password. "
+        "Use the link below to set a new password. The link expires in one hour.\n\n"
+        f"{reset_url}\n\n"
+        "If you did not request this change, you can ignore this email.\n"
+    )
+    return send_email(subject, [user.email], body)
