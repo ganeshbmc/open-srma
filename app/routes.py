@@ -1041,7 +1041,13 @@ def setup_form(project_id):
         # If a YAML file was uploaded, use it
         if uploaded and (uploaded.filename or '').lower().endswith(('.yaml', '.yml')):
             try:
-                yaml_text = uploaded.read().decode('utf-8')
+                raw_bytes = uploaded.read()
+                if not raw_bytes or not raw_bytes.strip():
+                    raise ValueError('The uploaded file is empty.')
+                try:
+                    yaml_text = raw_bytes.decode('utf-8-sig')
+                except UnicodeDecodeError as exc:
+                    raise ValueError('The uploaded file is not valid UTF-8 text.') from exc
                 existing_count = (
                     db.session.query(db.func.count(CustomFormField.id))
                     .filter_by(project_id=project.id)
@@ -1061,8 +1067,13 @@ def setup_form(project_id):
                 else:
                     flash('Data extraction form generated from uploaded template!')
                     return redirect(url_for('project_detail', project_id=project.id))
+            except ValueError as e:
+                flash(f'YAML validation error: {e}', 'error')
+                db.session.rollback()
+                return redirect(url_for('setup_form', project_id=project.id))
             except Exception as e:
                 flash(f'Failed to load uploaded YAML: {e}', 'error')
+                db.session.rollback()
                 return redirect(url_for('setup_form', project_id=project.id))
 
         # For auto/customize, a supported template must be chosen
