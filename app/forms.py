@@ -1,7 +1,7 @@
 import re
 
 from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, SubmitField, IntegerField, BooleanField, SelectField
+from wtforms import StringField, TextAreaField, SubmitField, IntegerField, BooleanField, SelectField, HiddenField
 from wtforms.fields import EmailField, PasswordField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, NumberRange, Regexp, ValidationError
 
@@ -128,3 +128,47 @@ class AddMemberForm(FlaskForm):
     email = StringField('Member Email', validators=[DataRequired(), Email()])
     role = SelectField('Role', choices=[('member', 'Member'), ('owner', 'Owner')], validators=[DataRequired()])
     submit = SubmitField('Add Member')
+
+
+class ForgotPasswordForm(FlaskForm):
+    email = EmailField(
+        'Email',
+        filters=[
+            lambda x: x.strip() if isinstance(x, str) else x,
+            lambda x: x.lower() if isinstance(x, str) else x,
+        ],
+        validators=[
+            DataRequired(message='Email is required.'),
+            Email(message='Enter a valid email address.'),
+            Length(max=255, message='Email must be 255 characters or fewer.'),
+        ],
+    )
+    submit = SubmitField('Send Reset Link')
+
+
+class ResetPasswordForm(FlaskForm):
+    token = HiddenField('Token')
+    password = PasswordField(
+        'New Password',
+        validators=[
+            DataRequired(message='Password is required.'),
+            Length(min=8, max=128, message='Password must be between 8 and 128 characters.'),
+        ],
+    )
+    confirm = PasswordField(
+        'Confirm Password',
+        validators=[
+            DataRequired(message='Please confirm your password.'),
+            EqualTo('password', message='Passwords must match.'),
+        ],
+    )
+    submit = SubmitField('Reset Password')
+
+    def validate_password(self, field):
+        password = field.data or ''
+        if password.strip() != password:
+            raise ValidationError('Password cannot start or end with spaces.')
+        if not re.search(r'[A-Za-z]', password):
+            raise ValidationError('Password must include at least one letter.')
+        if not re.search(r'[0-9]', password):
+            raise ValidationError('Password must include at least one number.')

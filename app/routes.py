@@ -1,12 +1,15 @@
 import io # Import io for BytesIO
 import zipfile # Import zipfile
 import os
-from datetime import date
+import secrets
+import hashlib
+from datetime import date, datetime, timedelta
+from sqlalchemy import or_
 from flask import render_template, flash, redirect, url_for, request, send_file, jsonify, abort # Import send_file, jsonify, abort
 from flask_login import current_user, login_user, logout_user, login_required
 from app import app, db
-from app.forms import ProjectForm, StudyForm, CustomFormFieldForm, OutcomeForm, RegisterForm, LoginForm, AddMemberForm
-from app.models import Project, Study, CustomFormField, StudyDataValue, StudyNumericalOutcome, ProjectOutcome, StudyContinuousOutcome, User, ProjectMembership, FormChangeRequest # Import new models
+from app.forms import ProjectForm, StudyForm, CustomFormFieldForm, OutcomeForm, RegisterForm, LoginForm, AddMemberForm, ForgotPasswordForm, ResetPasswordForm
+from app.models import Project, Study, CustomFormField, StudyDataValue, StudyNumericalOutcome, ProjectOutcome, StudyContinuousOutcome, User, ProjectMembership, FormChangeRequest, PasswordResetToken # Import new models
 from app.utils import load_template_and_create_form_fields, load_template_from_yaml_content # Import the new utility functions
 import json # Import json for handling dichotomous_outcome
 from pandas import DataFrame # Import pandas DataFrame
@@ -137,6 +140,91 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
+
+def _generate_reset_token() -> tuple[str, str]:
+    """Return a (raw_token, token_hash) pair ensured to be unique."""
+    for _ in range(10):
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
+        existing = PasswordResetToken.query.filter_by(token_hash=token_hash).first()
+        if not existing:
+            return raw_token, token_hash
+    raise RuntimeError('Unable to generate a unique reset token')
+
+
+def _purge_expired_tokens(user_id: int | None = None):
+    """Remove expired or used tokens to keep the table tidy."""
+    now = datetime.utcnow()
+    query = PasswordResetToken.query.filter(
+        or_(
+            PasswordResetToken.expires_at < now,
+            PasswordResetToken.used_at.isnot(None),
+        )
+    )
+    if user_id is not None:
+        query = query.filter(PasswordResetToken.user_id == user_id)
+    query.delete(synchronize_session=False)
+
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if getattr(current_user, 'is_authenticated', False):
+        return redirect(url_for('index'))
+    form = ForgotPasswordForm()
+    issued_token = None
+    submitted = False
+    if form.validate_on_submit():
+        submitted = True
+        email = (form.email.data or '').strip().lower()
+        user = User.query.filter(db.func.lower(User.email) == email).first()
+        if user and user.is_active:
+            _purge_expired_tokens(user.id)
+            raw_token, token_hash = _generate_reset_token()
+            expires_at = datetime.utcnow() + timedelta(hours=1)
+            prt = PasswordResetToken(user_id=user.id, token_hash=token_hash, expires_at=expires_at)
+            db.session.add(prt)
+            db.session.commit()
+            issued_token = raw_token
+        else:
+            # Commit to keep timing similar even when user not found
+            db.session.commit()
+    return render_template('auth_forgot_password.html', form=form, submitted=submitted, issued_token=issued_token)
+
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    if getattr(current_user, 'is_authenticated', False):
+        return redirect(url_for('index'))
+    normalized = (token or '').strip()
+    if not normalized:
+        flash('Invalid password reset link.', 'error')
+        return redirect(url_for('login'))
+    token_hash = hashlib.sha256(normalized.encode('utf-8')).hexdigest()
+    now = datetime.utcnow()
+    record = PasswordResetToken.query.filter_by(token_hash=token_hash).first()
+    if not record or record.used_at is not None or record.expires_at < now:
+        flash('This password reset link is invalid or has expired.', 'error')
+        return redirect(url_for('forgot_password'))
+    form = ResetPasswordForm()
+    form.token.data = normalized
+    if form.validate_on_submit():
+        if (form.token.data or '').strip() != normalized:
+            flash('Invalid password reset submission.', 'error')
+            return redirect(url_for('forgot_password'))
+        user = record.user
+        if not user or not user.is_active:
+            flash('Unable to reset password for this account.', 'error')
+            return redirect(url_for('login'))
+        user.set_password(form.password.data)
+        record.mark_used()
+        db.session.flush()
+        # Clean up any other outstanding tokens for this user
+        _purge_expired_tokens(user.id)
+        db.session.commit()
+        flash('Your password has been reset. You can now log in.', 'success')
+        return redirect(url_for('login'))
+    return render_template('auth_reset_password.html', form=form)
+
 @app.route('/add_project', methods=['GET', 'POST'])
 @login_required
 def add_project():
@@ -197,6 +285,7 @@ def project_detail(project_id):
         role_label = ms.role.capitalize()
     else:
         role_label = ''
+    is_member = bool(ms and ms.is_member())
     pending_count = project.change_requests.filter_by(status='pending').count() if is_owner_or_admin else 0
 
     # Resolve Study ID values for listing, if a field labeled "Study ID" exists
@@ -234,6 +323,7 @@ def project_detail(project_id):
         is_owner_or_admin=is_owner_or_admin,
         role_label=role_label,
         study_id_map=study_id_map,
+        is_member=is_member,
     )
 
 
@@ -338,6 +428,31 @@ def manage_members(project_id):
         .all()
     )
     return render_template('members.html', project=project, form=form, members=members)
+
+
+@app.route('/project/<int:project_id>/members/<int:membership_id>/remove', methods=['POST'])
+@login_required
+def remove_member(project_id, membership_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_owner(project.id)
+    membership = (
+        ProjectMembership.query
+        .filter_by(project_id=project.id, id=membership_id)
+        .first_or_404()
+    )
+    if membership.role == 'owner':
+        owner_count = ProjectMembership.query.filter_by(project_id=project.id, role='owner').count()
+        if owner_count <= 1:
+            flash('Cannot remove the last owner from the project.', 'error')
+            return redirect(url_for('manage_members', project_id=project.id))
+    try:
+        db.session.delete(membership)
+        db.session.commit()
+        flash('Member removed.', 'success')
+    except Exception:
+        db.session.rollback()
+        flash('Failed to remove member.', 'error')
+    return redirect(url_for('manage_members', project_id=project.id))
 
 
 # -------------------- Change requests (owner review) --------------------
@@ -459,6 +574,17 @@ def _apply_change_request(project, req: FormChangeRequest):
         if not outcome:
             return False
         db.session.delete(outcome)
+        db.session.commit()
+        return True
+    elif action == 'delete_study':
+        try:
+            sid = int(payload.get('study_id'))
+        except (TypeError, ValueError):
+            return False
+        study = Study.query.filter_by(project_id=project.id, id=sid).first()
+        if not study:
+            return False
+        db.session.delete(study)
         db.session.commit()
         return True
     return False
@@ -868,6 +994,30 @@ def add_study(project_id):
         flash('Study added successfully!')
         return redirect(url_for('project_detail', project_id=project.id))
     return render_template('add_study.html', form=form, project=project)
+
+
+@app.route('/project/<int:project_id>/study/<int:study_id>/delete', methods=['POST'])
+@login_required
+def delete_study(project_id, study_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_member(project.id)
+    study = Study.query.filter_by(project_id=project.id, id=study_id).first_or_404()
+    ms = get_membership_for(project.id)
+    if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
+        reason = (request.form.get('reason') or '').strip()
+        _propose_change(
+            project.id,
+            'delete_study',
+            {'study_id': study.id, 'study_title': study.title},
+            reason=reason,
+        )
+        flash('Study deletion request submitted for approval.', 'info')
+        return redirect(url_for('project_detail', project_id=project.id))
+
+    db.session.delete(study)
+    db.session.commit()
+    flash('Study deleted.', 'success')
+    return redirect(url_for('project_detail', project_id=project.id))
 
 @app.route('/project/<int:project_id>/setup_form', methods=['GET', 'POST'])
 @login_required

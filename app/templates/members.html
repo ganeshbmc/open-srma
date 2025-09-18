@@ -23,11 +23,19 @@
     <div class="card-header">Current Members</div>
     <ul class="list-group list-group-flush">
       {% for m in members %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
+        <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div>
             <div class="fw-semibold">{{ m.user.name }} <span class="text-muted">&lt;{{ m.user.email }}&gt;</span></div>
           </div>
-          <span class="badge text-bg-light">{{ m.role }}</span>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge text-bg-light text-capitalize">{{ m.role }}</span>
+            <form method="POST" action="{{ url_for('remove_member', project_id=project.id, membership_id=m.id) }}" onsubmit="return confirm('Remove {{ m.user.name }} from this project?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger" {% if m.role == 'owner' and members|selectattr('role', 'equalto', 'owner')|list|length <= 1 %}disabled title="At least one owner is required"{% endif %}>
+                Remove
+              </button>
+            </form>
+          </div>
         </li>
       {% else %}
         <li class="list-group-item text-muted">No members yet.</li>
@@ -35,4 +43,3 @@
     </ul>
   </div>
 {% endblock %}
-

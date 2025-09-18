@@ -150,7 +150,6 @@ sections:
           choices:
             - "Reported & Adequately Described"
             - "Reported but Not Adequately Described"
-            - "Not Reported"
             - "Not Applicable (e.g., pilot trial)"
           include_nr: true
       - label: "Analysis Type (e.g., ITT)"
