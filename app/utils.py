@@ -117,18 +117,22 @@ def _build_mail_connection(app):
     username = app.config.get('MAIL_USERNAME')
     password = app.config.get('MAIL_PASSWORD')
 
-    if use_ssl:
-        context = ssl.create_default_context()
-        conn = smtplib.SMTP_SSL(server, port, context=context, timeout=20)
-    else:
-        conn = smtplib.SMTP(server, port, timeout=20)
-        if use_tls:
+    try:
+        if use_ssl:
             context = ssl.create_default_context()
-            conn.starttls(context=context)
+            conn = smtplib.SMTP_SSL(server, port, context=context, timeout=20)
+        else:
+            conn = smtplib.SMTP(server, port, timeout=20)
+            if use_tls:
+                context = ssl.create_default_context()
+                conn.starttls(context=context)
 
-    if username and password:
-        conn.login(username, password)
-    return conn, username
+        if username and password:
+            conn.login(username, password)
+        return conn, username
+    except (OSError, smtplib.SMTPException) as exc:
+        app.logger.warning('Unable to connect to mail server %s:%s: %s', server, port, exc)
+        return None, None
 
 
 def send_email(subject: str, recipients: list[str], body: str) -> bool:
@@ -154,7 +158,7 @@ def send_email(subject: str, recipients: list[str], body: str) -> bool:
         msg.set_content(body)
         conn.send_message(msg)
         return True
-    except Exception as exc:
+    except (OSError, smtplib.SMTPException) as exc:
         app.logger.exception('Failed to send email: %s', exc)
         return False
     finally:
