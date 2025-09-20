@@ -1,0 +1,371 @@
+template_name: Cochrane-aligned RCT extraction
+template_id: rct_cochrane_9620a633
+sections:
+- section_name: Study Identification
+  fields:
+  - label: Study ID
+    field_type: text
+  - label: DOI
+    field_type: textarea
+    help: Provide the DOI only (e.g., 10.1001/jama.2020.12345)
+  - label: Country
+    field_type: text
+  - label: Assessor
+    field_type: select
+    options:
+      choices: []
+      include_nr: true
+- section_name: Study Characteristics
+  fields:
+  - label: Study design
+    field_type: select
+    options:
+      choices:
+      - Parallel-group RCT
+      - Crossover RCT
+      - Cluster RCT
+      - Factorial RCT
+      - Adaptive RCT
+      - Stepped-wedge RCT
+      - Pragmatic RCT
+      - Randomized pilot/feasibility
+      - Platform/Master protocol RCT
+      - Cluster crossover RCT
+      - Hybrid/Other (specify)
+      - Quasi-randomized trial
+      include_nr: true
+  - label: Randomization type
+    field_type: select
+    options:
+      choices:
+      - Simple
+      - Block
+      - Stratified
+      - Cluster
+      - Adaptive
+      - Other (specify)
+      include_nr: true
+  - label: Unit of allocation
+    field_type: select
+    options:
+      choices:
+      - Individual participants
+      - Body parts
+      - Clusters
+      - Pair of clusters
+      - Other (specify)
+      include_nr: true
+  - label: Start Date
+    field_type: date
+  - label: End Date
+    field_type: date
+  - label: Ethical approval obtained
+    field_type: select
+    options:
+      choices:
+      - 'Yes'
+      - 'No'
+      - Unclear
+      include_nr: true
+  - label: Informed consent obtained
+    field_type: select
+    options:
+      choices:
+      - 'Yes'
+      - 'No'
+      - Unclear
+      include_nr: true
+- section_name: Eligibility & Inclusion
+  fields:
+  - label: Inclusion criteria
+    field_type: textarea
+  - label: Exclusion criteria
+    field_type: textarea
+  - label: Types of interventions (as per protocol)
+    field_type: textarea
+  - label: Types of comparators (as per protocol)
+    field_type: textarea
+  - label: Types of outcome measures (as per protocol)
+    field_type: textarea
+- section_name: Participants
+  fields:
+  - label: Population description
+    field_type: textarea
+    help: Summarize source population; note key subgroups if any.
+  - label: Setting
+    field_type: textarea
+    help: Single centre / multicentre; country; clinical context; recruitment method.
+  - label: Total randomized / total at baseline
+    field_type: integer
+  - label: Clusters (if applicable)
+    field_type: textarea
+    help: No., type, persons per cluster
+  - label: Baseline imbalances
+    field_type: textarea
+- section_name: Patient Baseline Characteristics
+  fields:
+  - label: Age
+    field_type: baseline_continuous
+  - label: Female (%)
+    field_type: baseline_categorical
+  - label: BMI
+    field_type: baseline_continuous
+  - label: Baseline severity/score
+    field_type: baseline_continuous
+  - label: Other relevant sociodemographics
+    field_type: textarea
+- section_name: Intervention and Control Details
+  fields:
+  - label: Intervention Description
+    field_type: textarea
+  - label: Control/Comparator Description
+    field_type: textarea
+  - label: N randomized to Intervention
+    field_type: integer
+  - label: N randomized to Control
+    field_type: integer
+  - label: Dose/Intensity & Timing (freq, duration)
+    field_type: textarea
+  - label: Delivery & Providers (no., profession, training)
+    field_type: textarea
+  - label: Co-interventions
+    field_type: textarea
+  - label: Compliance / Adherence
+    field_type: textarea
+  - label: Fidelity / Integrity of delivery
+    field_type: textarea
+  - label: Resource requirements (equipment, staff)
+    field_type: textarea
+  - label: Economic info (costs, changes)
+    field_type: textarea
+- section_name: Blinding
+  fields:
+  - label: Participant blinding
+    field_type: select
+    options:
+      choices:
+      - 'Yes'
+      - 'No'
+      - Partial
+      include_nr: true
+  - label: Personnel blinding
+    field_type: select
+    options:
+      choices:
+      - 'Yes'
+      - 'No'
+      - Partial
+      include_nr: true
+  - label: Outcome assessor blinding
+    field_type: select
+    options:
+      choices:
+      - 'Yes'
+      - 'No'
+      - Partial
+      include_nr: true
+- section_name: Outcomes (repeat for each outcome)
+  fields:
+  - label: Outcome name
+    field_type: text
+  - label: Outcome definition (diagnostic criteria if relevant)
+    field_type: textarea
+  - label: Time points measured / reported
+    field_type: textarea
+  - label: Unit of measurement / Scale
+    field_type: text
+  - label: Scale limits & direction (higher is better?)
+    field_type: textarea
+  - label: Is outcome/tool validated?
+    field_type: select
+    options:
+      choices:
+      - 'Yes'
+      - 'No'
+      - Unclear
+      include_nr: true
+  - label: Person measuring/reporting
+    field_type: textarea
+  - label: Imputation of missing data / ITT assumptions
+    field_type: textarea
+  - label: Assumed/baseline risk, if applicable
+    field_type: textarea
+- section_name: Risk of Bias (RCT)
+  fields:
+  - label: Random sequence generation (selection bias)
+    field_type: select
+    options:
+      choices:
+      - Low
+      - High
+      - Unclear
+      include_nr: true
+  - label: 'Support for judgement: Random sequence generation'
+    field_type: textarea
+  - label: Allocation concealment (selection bias)
+    field_type: select
+    options:
+      choices:
+      - Low
+      - High
+      - Unclear
+      include_nr: true
+  - label: 'Support for judgement: Allocation concealment'
+    field_type: textarea
+  - label: Blinding of participants and personnel (performance bias)
+    field_type: select
+    options:
+      choices:
+      - Low
+      - High
+      - Unclear
+      include_nr: true
+  - label: 'Support for judgement: Performance bias'
+    field_type: textarea
+  - label: Blinding of outcome assessment (detection bias)
+    field_type: select
+    options:
+      choices:
+      - Low
+      - High
+      - Unclear
+      include_nr: true
+  - label: 'Support for judgement: Detection bias'
+    field_type: textarea
+  - label: Incomplete outcome data (attrition bias)
+    field_type: select
+    options:
+      choices:
+      - Low
+      - High
+      - Unclear
+      include_nr: true
+  - label: 'Support for judgement: Attrition bias'
+    field_type: textarea
+  - label: Selective reporting (reporting bias)
+    field_type: select
+    options:
+      choices:
+      - Low
+      - High
+      - Unclear
+      include_nr: true
+  - label: 'Support for judgement: Reporting bias'
+    field_type: textarea
+  - label: Other bias
+    field_type: select
+    options:
+      choices:
+      - Low
+      - High
+      - Unclear
+      include_nr: true
+  - label: 'Support for judgement: Other bias'
+    field_type: textarea
+- section_name: Data & Analysis (RCT) - Dichotomous
+  fields:
+  - label: Comparison
+    field_type: text
+  - label: Outcome
+    field_type: text
+  - label: Subgroup (if any)
+    field_type: text
+  - label: Time point (from start/end of intervention)
+    field_type: text
+  - label: 'Intervention: events'
+    field_type: integer
+  - label: 'Intervention: total'
+    field_type: integer
+  - label: 'Control: events'
+    field_type: integer
+  - label: 'Control: total'
+    field_type: integer
+  - label: Other results reported (OR/RR, CI, P)
+    field_type: textarea
+  - label: No. missing participants (Intervention)
+    field_type: integer
+  - label: No. missing participants (Control)
+    field_type: integer
+  - label: Reasons missing
+    field_type: textarea
+  - label: Unit of analysis
+    field_type: text
+  - label: Statistical methods used / appropriateness
+    field_type: textarea
+  - label: Reanalysis required?
+    field_type: select
+    options:
+      choices:
+      - 'Yes'
+      - 'No'
+      - Unclear
+      include_nr: true
+  - label: Reanalysis possible?
+    field_type: select
+    options:
+      choices:
+      - 'Yes'
+      - 'No'
+      - Unclear
+      include_nr: true
+  - label: Reanalysed results (if done)
+    field_type: textarea
+- section_name: Data & Analysis (RCT) - Continuous
+  fields:
+  - label: Comparison
+    field_type: text
+  - label: Outcome
+    field_type: text
+  - label: Subgroup (if any)
+    field_type: text
+  - label: Time point
+    field_type: text
+  - label: Post-intervention or change from baseline?
+    field_type: select
+    options:
+      choices:
+      - Post
+      - Change
+      include_nr: true
+  - label: 'Results table: means, SD/SE, N (Intervention & Control)'
+    field_type: textarea
+  - label: Other results reported (MD/SMD, CI, P)
+    field_type: textarea
+  - label: No. missing participants (Intervention)
+    field_type: integer
+  - label: No. missing participants (Control)
+    field_type: integer
+  - label: Reasons missing
+    field_type: textarea
+  - label: Unit of analysis
+    field_type: text
+  - label: Statistical methods used / appropriateness
+    field_type: textarea
+  - label: Reanalysis required?
+    field_type: select
+    options:
+      choices:
+      - 'Yes'
+      - 'No'
+      - Unclear
+      include_nr: true
+  - label: Reanalysis possible?
+    field_type: select
+    options:
+      choices:
+      - 'Yes'
+      - 'No'
+      - Unclear
+      include_nr: true
+  - label: Reanalysed results (if done)
+    field_type: textarea
+- section_name: Funding & Conflicts of Interest
+  fields:
+  - label: Study funding sources (incl. role of funders)
+    field_type: textarea
+  - label: Possible conflicts of interest (study authors)
+    field_type: textarea
+- section_name: General Comments
+  fields:
+  - label: Comments
+    field_type: textarea
