@@ -64,7 +64,7 @@
                   <div class="text-muted small">{{ study.author }}, {{ study.year }}</div>
                 {% endif %}
               </div>
-              <div class="d-flex flex-column flex-sm-row gap-2 w-100 w-sm-auto">
+              <div class="d-grid gap-2 d-sm-flex flex-sm-row flex-sm-wrap justify-content-sm-end align-items-sm-center">
                 <a href="{{ url_for('enter_data', project_id=project.id, study_id=study.id) }}" class="btn btn-sm btn-outline-primary">Enter Data</a>
                 {% if is_owner_or_admin %}
                   <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteStudyModal" data-delete-url="{{ url_for('delete_study', project_id=project.id, study_id=study.id) }}" data-study-title="{{ study.title }}">Delete</button>
