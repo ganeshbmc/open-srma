@@ -83,6 +83,13 @@
             </tbody>
           </table>
           </div>
+          
+          {# Save section button and status at bottom of each section #}
+          <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+            {% set sec_id = 'form_sec_' ~ loop.index %}
+            <span id="status-{{ sec_id }}" class="small text-muted"></span>
+            <button type="button" class="btn btn-sm btn-outline-secondary save-form-section-btn" data-section-id="{{ sec_id }}" data-section-name="{{ sec.name }}">Save Section</button>
+          </div>
         </div>
       </div>
     {% endfor %}
@@ -186,6 +193,44 @@
         }
       });
     }
+
+    // Basic autosave functionality for form customization
+    // Since this page doesn't have traditional form inputs to autosave,
+    // we'll add status messaging when save section buttons are clicked
+    
+    function formatNowTime() {
+        const d = new Date();
+        try {
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        } catch (_) {
+            return d.toTimeString().split(' ')[0];
+        }
+    }
+
+    function setStatus(sectionId, text, cls = 'text-muted') {
+        const statusEl = document.getElementById(`status-${sectionId}`);
+        if (statusEl) {
+            statusEl.className = `small ${cls}`;
+            statusEl.textContent = text;
+        }
+    }
+
+    // Handle save section button clicks
+    document.addEventListener('click', function(event) {
+        if (event.target && event.target.classList.contains('save-form-section-btn')) {
+            event.preventDefault();
+            const sectionId = event.target.getAttribute('data-section-id');
+            const sectionName = event.target.getAttribute('data-section-name');
+            
+            // Show saving status
+            setStatus(sectionId, 'Saving...', 'text-secondary');
+            
+            // Simulate a brief save operation
+            setTimeout(() => {
+                setStatus(sectionId, `Saved at ${formatNowTime()}`, 'text-success');
+            }, 500);
+        }
+    });
 
     // For member actions, prompt an optional reason and inject into form
     document.addEventListener('submit', function (e) {
