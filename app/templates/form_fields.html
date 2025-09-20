@@ -46,10 +46,11 @@
             <table class="table table-sm align-middle mb-0">
               <thead>
                 <tr>
-                  <th style="width: 40%">Label</th>
-                  <th style="width: 20%">Type</th>
-                  <th style="width: 10%">Required</th>
-                  <th style="width: 30%">Actions</th>
+                  <th style="width: 30%">Label</th>
+                  <th style="width: 15%">Type</th>
+                  <th style="width: 8%">Required</th>
+                  <th style="width: 22%">Help Text</th>
+                  <th style="width: 25%">Actions</th>
                 </tr>
               </thead>
             <tbody>
@@ -58,6 +59,13 @@
                 <td>{{ f.label }}</td>
                 <td>{{ f.field_type }}</td>
                 <td>{{ 'Yes' if f.required else 'No' }}</td>
+                <td>
+                  {% if f.help_text %}
+                    <span class="text-muted small">{{ f.help_text }}</span>
+                  {% else %}
+                    <span class="text-muted fst-italic">No help text</span>
+                  {% endif %}
+                </td>
                 <td>
                   <form method="POST" action="{{ url_for('move_form_field_up', project_id=project.id, field_id=f.id) }}" style="display:inline" {% if not (current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first())) %}data-requires-reason="true"{% endif %}>
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
