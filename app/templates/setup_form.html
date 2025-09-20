@@ -12,16 +12,18 @@
           <div class="mb-3">
             <label for="template_id" class="form-label">Choose SRMA type (template):</label>
             <select class="form-select" id="template_id" name="template_id">
-              <option value="rct_v2" selected>Randomized Controlled Trial (RCT) v2</option>
-              <option value="rct_v1">Randomized Controlled Trial (RCT) v1 (legacy)</option>
-              <option value="non_rct_v1" disabled>Non-Randomized Study (Coming Soon)</option>
+              {% for choice in template_choices %}
+                <option value="{{ choice.id }}" {% if choice.id == selected_template_id %}selected{% endif %}>{{ choice.label }}</option>
+              {% endfor %}
             </select>
-            <div class="form-text">
-              Download templates: 
-              <a href="{{ url_for('download_template_yaml', template_id='rct_v2') }}">rct_v2.yaml</a>
-              · 
-              <a href="{{ url_for('download_template_yaml', template_id='rct_v1') }}">rct_v1.yaml</a>
-            </div>
+            {% if template_choices %}
+              <div class="form-text">
+                Download templates:
+                {% for choice in template_choices %}
+                  <a href="{{ url_for('download_template_yaml', template_id=choice.id) }}">{{ choice.download_name }}</a>{% if not loop.last %} · {% endif %}
+                {% endfor %}
+              </div>
+            {% endif %}
           </div>
 
           <div class="mb-3">

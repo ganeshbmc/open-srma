@@ -59,6 +59,37 @@ def require_project_owner(project_id: int):
         abort(403)
 
 
+FORM_TEMPLATE_META: dict[str, dict[str, str]] = {
+    'rct_v2': {
+        'label': 'Randomized Controlled Trial (RCT) v2',
+        'download_name': 'rct_v2.yaml',
+        'success_message': 'Data extraction form generated from RCT template!',
+    },
+    'rct_cochrane': {
+        'label': 'Cochrane-aligned RCT extraction',
+        'download_name': 'rct_cochrane.yaml',
+        'success_message': 'Data extraction form generated from Cochrane-aligned RCT template!',
+    },
+    'nonrct_cochrane': {
+        'label': 'Cochrane-aligned Non-RCT extraction',
+        'download_name': 'nonrct_cochrane.yaml',
+        'success_message': 'Data extraction form generated from Cochrane-aligned Non-RCT template!',
+    },
+    'rct_v1': {
+        'label': 'Randomized Controlled Trial (RCT) v1 (legacy)',
+        'download_name': 'rct_v1.yaml',
+        'success_message': 'Data extraction form generated from RCT template!',
+    },
+}
+
+FORM_TEMPLATE_ORDER: list[str] = [
+    'rct_v2',
+    'rct_cochrane',
+    'nonrct_cochrane',
+    'rct_v1',
+]
+
+
 def _propose_change(project_id: int, action_type: str, payload: dict, reason: str | None = None):
     fcr = FormChangeRequest(
         project_id=project_id,
@@ -1037,6 +1068,7 @@ def delete_study(project_id, study_id):
 def setup_form(project_id):
     project = Project.query.get_or_404(project_id)
     require_project_owner(project.id)
+    default_template_id = FORM_TEMPLATE_ORDER[0]
     if request.method == 'POST':
         template_id = request.form.get('template_id')
         setup_mode = (request.form.get('setup_mode') or 'auto').lower()  # 'auto' | 'customize' | 'scratch'
@@ -1086,7 +1118,7 @@ def setup_form(project_id):
                 return redirect(url_for('setup_form', project_id=project.id))
 
         # For auto/customize, a supported template must be chosen
-        if template_id in ('rct_v2', 'rct_v1'):
+        if template_id in FORM_TEMPLATE_META:
             # Guard: if fields already exist, do not recreate from template
             existing_count = (
                 db.session.query(db.func.count(CustomFormField.id))
@@ -1106,21 +1138,41 @@ def setup_form(project_id):
                     flash('Base form created from template. Customize it below.')
                     return redirect(url_for('list_form_fields', project_id=project.id))
                 else:
-                    flash('Data extraction form generated from RCT template!')
+                    success_message = FORM_TEMPLATE_META.get(template_id, {}).get(
+                        'success_message',
+                        'Data extraction form generated from template!'
+                    )
+                    flash(success_message)
                     return redirect(url_for('project_detail', project_id=project.id))
             except Exception as e:
                 flash(f'Failed to generate form: {e}', 'error')
         else:
             flash('Invalid template selected or template not yet supported.', 'error')
-    return render_template('setup_form.html', project=project)
+    template_choices = [
+        {
+            'id': tid,
+            'label': FORM_TEMPLATE_META[tid]['label'],
+            'download_name': FORM_TEMPLATE_META[tid].get('download_name', f'{tid}.yaml'),
+        }
+        for tid in FORM_TEMPLATE_ORDER
+        if tid in FORM_TEMPLATE_META
+    ]
+    selected_template_id = request.form.get('template_id') if request.method == 'POST' else default_template_id
+    if not selected_template_id or selected_template_id not in FORM_TEMPLATE_META:
+        selected_template_id = default_template_id
+    return render_template(
+        'setup_form.html',
+        project=project,
+        template_choices=template_choices,
+        selected_template_id=selected_template_id,
+    )
 
 
 @app.route('/templates/<template_id>.yaml')
 @login_required
 def download_template_yaml(template_id):
     # Only allow known templates inside app/form_templates
-    allowed = {'rct_v1', 'rct_v2'}
-    if template_id not in allowed:
+    if template_id not in FORM_TEMPLATE_META:
         abort(404)
     path = os.path.join(os.path.dirname(__file__), 'form_templates', f'{template_id}.yaml')
     if not os.path.exists(path):
