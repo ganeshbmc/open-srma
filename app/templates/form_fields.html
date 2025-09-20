@@ -1,18 +1,22 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <h1 class="d-flex align-items-center gap-2"> 
-    <span>Customize Data Extraction Form — {{ project.name }}</span>
-    {% if role_label %}
-      <span class="badge text-bg-light">{{ role_label }}</span>
-    {% endif %}
-  </h1>
+  <div class="row align-items-start justify-content-between mb-3"> 
+    <div class="col-12 col-lg-8">
+      <h1 class="d-flex align-items-center gap-2 flex-wrap"> 
+        <span>Customize Data Extraction Form — {{ project.name }}</span>
+        {% if role_label %}
+          <span class="badge text-bg-light">{{ role_label }}</span>
+        {% endif %}
+      </h1>
+    </div>
+  </div>
 
   {% if not (current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first())) %}
     <div class="alert alert-info">You are a project member. Changes you make here will be submitted for owner approval.</div>
   {% endif %}
 
-  <div class="mb-3">
+  <div class="mb-3 d-flex flex-column flex-sm-row gap-2">
     <a class="btn btn-primary" href="{{ url_for('add_form_field', project_id=project.id) }}">Add Field</a>
     <a class="btn btn-secondary" href="{{ url_for('project_detail', project_id=project.id) }}">Back to Project</a>
     {% if current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first()) %}
@@ -38,15 +42,16 @@
           </div>
         </div>
         <div class="card-body p-0">
-          <table class="table table-sm align-middle mb-0">
-            <thead>
-              <tr>
-                <th style="width: 40%">Label</th>
-                <th style="width: 20%">Type</th>
-                <th style="width: 10%">Required</th>
-                <th style="width: 30%">Actions</th>
-              </tr>
-            </thead>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th style="width: 40%">Label</th>
+                  <th style="width: 20%">Type</th>
+                  <th style="width: 10%">Required</th>
+                  <th style="width: 30%">Actions</th>
+                </tr>
+              </thead>
             <tbody>
               {% for f in sec.fields %}
               <tr>
@@ -69,6 +74,7 @@
               {% endfor %}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     {% endfor %}
