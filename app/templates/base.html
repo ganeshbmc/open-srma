@@ -37,15 +37,22 @@
       </div>
     </nav>
     <div class="container"> {# Add a container for better layout #}
-      {% with messages = get_flashed_messages() %}
+      {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-          <div class="alert alert-info" role="alert"> {# Use Bootstrap alert for flash messages #}
-            <ul>
-            {% for message in messages %}
-              <li>{{ message }}</li>
-            {% endfor %}
-            </ul>
-          </div>
+          {% for category, message in messages %}
+            {% set alert_class = 'alert-info' %}
+            {% if category == 'success' %}
+              {% set alert_class = 'alert-success' %}
+            {% elif category == 'error' %}
+              {% set alert_class = 'alert-danger' %}
+            {% elif category == 'warning' %}
+              {% set alert_class = 'alert-warning' %}
+            {% endif %}
+            <div class="alert {{ alert_class }} alert-dismissible fade show" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endfor %}
         {% endif %}
       {% endwith %}
       {% block content %}{% endblock %}
