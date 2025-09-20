@@ -73,8 +73,17 @@ def _propose_change(project_id: int, action_type: str, payload: dict, reason: st
     return fcr
 
 @app.route('/')
-@login_required
 def index():
+    # If user is authenticated, redirect to dashboard
+    if getattr(current_user, 'is_authenticated', False):
+        return redirect(url_for('dashboard'))
+    # Show public home page for unauthenticated users
+    return render_template('home.html')
+
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
     if is_admin():
         projects = Project.query.order_by(Project.id.asc()).all()
         roles_by_project = {p.id: 'Admin' for p in projects}
@@ -103,7 +112,7 @@ def index():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if getattr(current_user, 'is_authenticated', False):
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard'))
     form = RegisterForm()
     if form.validate_on_submit():
         user = User(name=form.name.data.strip(), email=form.email.data.lower())
@@ -118,7 +127,7 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if getattr(current_user, 'is_authenticated', False):
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard'))
     form = LoginForm()
     if form.validate_on_submit():
         email = form.email.data.strip().lower()
@@ -130,7 +139,7 @@ def login():
             form.email.errors.append('Account is disabled. Contact an administrator.')
             return render_template('auth_login.html', form=form)
         login_user(user)
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard'))
     return render_template('auth_login.html', form=form)
 
 
@@ -169,7 +178,7 @@ def _purge_expired_tokens(user_id: int | None = None):
 @app.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():
     if getattr(current_user, 'is_authenticated', False):
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard'))
     form = ForgotPasswordForm()
     issued_token = None
     submitted = False
@@ -198,7 +207,7 @@ def forgot_password():
 @app.route('/reset_password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
     if getattr(current_user, 'is_authenticated', False):
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard'))
     normalized = (token or '').strip()
     if not normalized:
         flash('Invalid password reset link.', 'error')
@@ -983,7 +992,7 @@ def delete_project(project_id):
     db.session.delete(project)
     db.session.commit()
     flash(f"Project deleted. Removed {study_count} study(ies) and {field_count} form field(s).")
-    return redirect(url_for('index'))
+    return redirect(url_for('dashboard'))
 
 @app.route('/project/<int:project_id>/add_study', methods=['GET', 'POST'])
 @login_required
