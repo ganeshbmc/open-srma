@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="py-5 text-center">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-8 col-xl-6">
+        <h1 class="display-4 fw-bold text-primary mb-4">Open SRMA</h1>
+        <p class="lead mb-4">
+          An open-source platform for <strong>systematic reviews and meta-analysis</strong>.
+          Streamline your research from data extraction to publication-ready results.
+        </p>
+        <p class="mb-5">
+          Extract structured data from research papers, manage multi-author projects with role-based access,
+          and generate comprehensive meta-analyses with statistical plots and reports.
+          Perfect for evidence-based research teams and academic institutions.
+        </p>
+        
+        <div class="d-grid gap-3 d-md-flex justify-content-md-center mb-5">
+          <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg px-4">
+            <i class="fas fa-user-plus me-2"></i>Get Started
+          </a>
+          <a href="{{ url_for('login') }}" class="btn btn-outline-primary btn-lg px-4">
+            <i class="fas fa-sign-in-alt me-2"></i>Sign In
+          </a>
+        </div>
+      </div>
+    </div>
+    
+    <div class="row text-start mt-5">
+      <div class="col-md-4 mb-4">
+        <div class="card h-100 border-0 shadow-sm">
+          <div class="card-body">
+            <div class="text-primary mb-3">
+              <i class="fas fa-file-alt fa-2x"></i>
+            </div>
+            <h5 class="card-title">Data Extraction</h5>
+            <p class="card-text">
+              Structured forms for extracting data from research papers. 
+              Support for randomized controlled trials with customizable fields and validation.
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-md-4 mb-4">
+        <div class="card h-100 border-0 shadow-sm">
+          <div class="card-body">
+            <div class="text-primary mb-3">
+              <i class="fas fa-users fa-2x"></i>
+            </div>
+            <h5 class="card-title">Team Collaboration</h5>
+            <p class="card-text">
+              Role-based access control with project owners, members, and administrators. 
+              Manage permissions and review changes with approval workflows.
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-md-4 mb-4">
+        <div class="card h-100 border-0 shadow-sm">
+          <div class="card-body">
+            <div class="text-primary mb-3">
+              <i class="fas fa-chart-line fa-2x"></i>
+            </div>
+            <h5 class="card-title">Meta-Analysis</h5>
+            <p class="card-text">
+              Generate forest plots, funnel plots, and comprehensive reports. 
+              Export data for use with R, Python, or other statistical software.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.display-4 {
+  font-weight: 700;
+}
+
+.card {
+  transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+}
+
+.text-primary {
+  color: #0d6efd !important;
+}
+</style>
+{% endblock %}

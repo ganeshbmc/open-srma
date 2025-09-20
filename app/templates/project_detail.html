@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <div class="d-flex align-items-start justify-content-between mb-3">
-      <div>
-        <h1 class="mb-1 d-flex align-items-center gap-2">
+    <div class="row align-items-start justify-content-between mb-3">
+      <div class="col-12 col-lg-8">
+        <h1 class="mb-1 d-flex align-items-center gap-2 flex-wrap">
           <span>{{ project.name }}</span>
           {% if role_label %}
             <span class="badge text-bg-light">{{ role_label }}</span>
@@ -13,47 +13,49 @@
           <p class="text-muted mb-0">{{ project.description }}</p>
         {% endif %}
       </div>
-      <div class="text-end d-flex flex-wrap justify-content-end gap-2">
-        <a href="{{ url_for('list_form_fields', project_id=project.id) }}" class="btn btn-outline-secondary">Customize Form{% if is_owner_or_admin and pending_count and pending_count > 0 %} <span class="badge text-bg-warning">{{ pending_count }}</span>{% endif %}</a>
+      <div class="col-12 col-lg-4">
+        <div class="d-flex flex-column flex-sm-row flex-lg-column flex-xl-row gap-2 justify-content-end mt-2 mt-lg-0">
+          <a href="{{ url_for('list_form_fields', project_id=project.id) }}" class="btn btn-outline-secondary btn-sm">Customize Form{% if is_owner_or_admin and pending_count and pending_count > 0 %} <span class="badge text-bg-warning">{{ pending_count }}</span>{% endif %}</a>
 
-        <div class="btn-group">
-          <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Export</button>
-          <ul class="dropdown-menu dropdown-menu-end">
-            <li>
-              <a class="dropdown-item" href="{{ url_for('export_static', project_id=project.id, format='csv') }}">Static Fields (CSV)</a>
-            </li>
-            <li>
-              {% if outcome_row_count > 0 %}
-                <a class="dropdown-item" href="{{ url_for('export_outcomes', project_id=project.id) }}">Outcomes (zip)</a>
-              {% else %}
-                <button type="button" class="dropdown-item disabled" data-bs-toggle="tooltip" data-bs-title="No outcomes recorded yet">Outcomes (zip)</button>
-              {% endif %}
-            </li>
-            <li><hr class="dropdown-divider"></li>
-            <li>
-              <a class="dropdown-item" href="{{ url_for('export_all_zip', project_id=project.id) }}">Export All Data (zip)</a>
-            </li>
-          </ul>
+          <div class="btn-group">
+            <button type="button" class="btn btn-success btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Export</button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li>
+                <a class="dropdown-item" href="{{ url_for('export_static', project_id=project.id, format='csv') }}">Static Fields (CSV)</a>
+              </li>
+              <li>
+                {% if outcome_row_count > 0 %}
+                  <a class="dropdown-item" href="{{ url_for('export_outcomes', project_id=project.id) }}">Outcomes (zip)</a>
+                {% else %}
+                  <button type="button" class="dropdown-item disabled" data-bs-toggle="tooltip" data-bs-title="No outcomes recorded yet">Outcomes (zip)</button>
+                {% endif %}
+              </li>
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('export_all_zip', project_id=project.id) }}">Export All Data (zip)</a>
+              </li>
+            </ul>
+          </div>
+
+          {% if is_owner_or_admin %}
+            <a href="{{ url_for('list_change_requests', project_id=project.id) }}" class="btn btn-outline-secondary btn-sm">Requests{% if pending_count and pending_count > 0 %} ({{ pending_count }}){% endif %}</a>
+            <a href="{{ url_for('manage_members', project_id=project.id) }}" class="btn btn-outline-secondary btn-sm">Members</a>
+            <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteProjectModal">Delete Project</button>
+          {% endif %}
         </div>
-
-        {% if is_owner_or_admin %}
-          <a href="{{ url_for('list_change_requests', project_id=project.id) }}" class="btn btn-outline-secondary">Requests{% if pending_count and pending_count > 0 %} ({{ pending_count }}){% endif %}</a>
-          <a href="{{ url_for('manage_members', project_id=project.id) }}" class="btn btn-outline-secondary">Members</a>
-          <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteProjectModal">Delete Project</button>
-        {% endif %}
       </div>
     </div>
 
     <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
+      <div class="card-header d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
         <h2 class="h5 mb-0">Studies</h2>
         <a href="{{ url_for('add_study', project_id=project.id) }}" class="btn btn-primary btn-sm">Add Study</a>
       </div>
       <div class="list-group list-group-flush">
         {% if studies %}
           {% for study in studies %}
-            <div class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
-              <div>
+            <div class="list-group-item d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
+              <div class="flex-grow-1">
                 <div class="fw-semibold">{{ study.title }}</div>
                 {% set sid = study_id_map.get(study.id) if study_id_map else None %}
                 {% if sid %}
@@ -62,7 +64,7 @@
                   <div class="text-muted small">{{ study.author }}, {{ study.year }}</div>
                 {% endif %}
               </div>
-              <div class="d-flex gap-2">
+              <div class="d-flex flex-column flex-sm-row gap-2 w-100 w-sm-auto">
                 <a href="{{ url_for('enter_data', project_id=project.id, study_id=study.id) }}" class="btn btn-sm btn-outline-primary">Enter Data</a>
                 {% if is_owner_or_admin %}
                   <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteStudyModal" data-delete-url="{{ url_for('delete_study', project_id=project.id, study_id=study.id) }}" data-study-title="{{ study.title }}">Delete</button>
@@ -79,7 +81,7 @@
     </div>
 
     <div class="mt-3">
-      <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Back to Projects</a>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">Back to Projects</a>
     </div>
 
     <!-- Delete Project Modal -->
