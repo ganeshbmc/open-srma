@@ -64,21 +64,25 @@ FORM_TEMPLATE_META: dict[str, dict[str, str]] = {
         'label': 'Randomized Controlled Trial (RCT) v2',
         'download_name': 'rct_v2.yaml',
         'success_message': 'Data extraction form generated from RCT template!',
+        'enabled': True,
     },
     'rct_cochrane': {
         'label': 'Cochrane-aligned RCT extraction',
         'download_name': 'rct_cochrane.yaml',
         'success_message': 'Data extraction form generated from Cochrane-aligned RCT template!',
+        'enabled': False,
     },
     'nonrct_cochrane': {
         'label': 'Cochrane-aligned Non-RCT extraction',
         'download_name': 'nonrct_cochrane.yaml',
         'success_message': 'Data extraction form generated from Cochrane-aligned Non-RCT template!',
+        'enabled': False,
     },
     'rct_v1': {
         'label': 'Randomized Controlled Trial (RCT) v1 (legacy)',
         'download_name': 'rct_v1.yaml',
         'success_message': 'Data extraction form generated from RCT template!',
+        'enabled': True,
     },
 }
 
@@ -1068,7 +1072,10 @@ def delete_study(project_id, study_id):
 def setup_form(project_id):
     project = Project.query.get_or_404(project_id)
     require_project_owner(project.id)
-    default_template_id = FORM_TEMPLATE_ORDER[0]
+    default_template_id = next(
+        (tid for tid in FORM_TEMPLATE_ORDER if FORM_TEMPLATE_META.get(tid, {}).get('enabled', True)),
+        FORM_TEMPLATE_ORDER[0],
+    )
     if request.method == 'POST':
         template_id = request.form.get('template_id')
         setup_mode = (request.form.get('setup_mode') or 'auto').lower()  # 'auto' | 'customize' | 'scratch'
@@ -1118,7 +1125,8 @@ def setup_form(project_id):
                 return redirect(url_for('setup_form', project_id=project.id))
 
         # For auto/customize, a supported template must be chosen
-        if template_id in FORM_TEMPLATE_META:
+        meta = FORM_TEMPLATE_META.get(template_id)
+        if meta and meta.get('enabled', True):
             # Guard: if fields already exist, do not recreate from template
             existing_count = (
                 db.session.query(db.func.count(CustomFormField.id))
@@ -1147,18 +1155,23 @@ def setup_form(project_id):
             except Exception as e:
                 flash(f'Failed to generate form: {e}', 'error')
         else:
-            flash('Invalid template selected or template not yet supported.', 'error')
+            flash('Invalid template selected or template not yet available.', 'error')
     template_choices = [
         {
             'id': tid,
             'label': FORM_TEMPLATE_META[tid]['label'],
             'download_name': FORM_TEMPLATE_META[tid].get('download_name', f'{tid}.yaml'),
+            'enabled': FORM_TEMPLATE_META[tid].get('enabled', True),
         }
         for tid in FORM_TEMPLATE_ORDER
         if tid in FORM_TEMPLATE_META
     ]
     selected_template_id = request.form.get('template_id') if request.method == 'POST' else default_template_id
-    if not selected_template_id or selected_template_id not in FORM_TEMPLATE_META:
+    if (
+        not selected_template_id
+        or selected_template_id not in FORM_TEMPLATE_META
+        or not FORM_TEMPLATE_META[selected_template_id].get('enabled', True)
+    ):
         selected_template_id = default_template_id
     return render_template(
         'setup_form.html',

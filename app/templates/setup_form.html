@@ -13,7 +13,7 @@
             <label for="template_id" class="form-label">Choose SRMA type (template):</label>
             <select class="form-select" id="template_id" name="template_id">
               {% for choice in template_choices %}
-                <option value="{{ choice.id }}" {% if choice.id == selected_template_id %}selected{% endif %}>{{ choice.label }}</option>
+                <option value="{{ choice.id }}" {% if choice.id == selected_template_id %}selected{% endif %} {% if not choice.enabled %}disabled{% endif %}>{{ choice.label }}{% if not choice.enabled %} (Coming soon){% endif %}</option>
               {% endfor %}
             </select>
             {% if template_choices %}
