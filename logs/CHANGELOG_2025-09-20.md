@@ -16,6 +16,7 @@ Rolled out a polished public landing experience, improved responsiveness across 
 ### Form Customization Enhancements
 - Inserted a Help Text column so editors can review contextual guidance alongside each custom field.
 - Relocated section save controls to the footer of each customization card and added timestamped status messages for manual saves.
+- Added Cochrane-aligned RCT and Non-RCT templates to the bundled library (downloadable now, in-app selection temporarily disabled while the YAML is refined).
 
 ### Data Entry Workflow
 - Mirrored bottom-aligned save controls and status indicators within study data-entry sections for consistent UX.
@@ -27,4 +28,3 @@ Rolled out a polished public landing experience, improved responsiveness across 
 
 ## Tests / Checks
 - not run (UI-focused changes)
-
