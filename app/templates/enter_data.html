@@ -715,6 +715,11 @@
                 if (event.target && event.target.id === 'add-numerical-outcome-btn') {
                     event.preventDefault();
                     event.stopPropagation();
+                    const empty = findEmptyDichRow();
+                    if (empty) {
+                        setStatus('numerical_outcomes', 'Use existing empty row first', 'text-warning');
+                        return;
+                    }
                     addNumericalOutcome();
                     // schedule autosave for numerical outcomes after adding a row
                     scheduleAutosave('numerical_outcomes', 'numerical_outcomes');
@@ -770,6 +775,11 @@
                 if (event.target && event.target.id === 'add-continuous-outcome-btn') {
                     event.preventDefault();
                     event.stopPropagation();
+                    const empty = findEmptyContRow();
+                    if (empty) {
+                        setStatus('continuous_outcomes', 'Use existing empty row first', 'text-warning');
+                        return;
+                    }
                     addContinuousOutcome();
                     scheduleAutosave('continuous_outcomes', 'continuous_outcomes');
                 }
