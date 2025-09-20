@@ -45,9 +45,10 @@
                                 {% if request.method == 'POST' %}
                                   {% set prefill = posted_value if posted_value is not none else '' %}
                                 {% else %}
-                                  {% set prefill = existing_data[field.id] if field.id in existing_data else (autofill_defaults.get(field.id) if is_study_id else '') %}
+                                  {% set source_value = existing_data[field.id] if field.id in existing_data else (autofill_defaults.get(field.id) if is_study_id else '') %}
+                                  {% set prefill = '' if source_value is none else source_value %}
                                 {% endif %}
-                                <input class="form-control{% if field_error %} is-invalid{% endif %}" type="text" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ prefill }}" {% if field.required %}required{% endif %} {% if is_study_id and not is_owner_or_admin %}readonly{% endif %}>
+                                <input class="form-control{% if field_error %} is-invalid{% endif %}" type="text" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ prefill if prefill is not none else '' }}" {% if field.required %}required{% endif %} {% if is_study_id and not is_owner_or_admin %}readonly{% endif %}>
                                 {% if is_study_id %}
                                   <div class="form-text">Auto-filled as "Author et al, Year". {% if not is_owner_or_admin %}Only Owners/Admins can edit.{% endif %}</div>
                                 {% elif field.help_text %}
@@ -60,9 +61,10 @@
                                 {% if request.method == 'POST' %}
                                   {% set area_value = posted_value if posted_value is not none else '' %}
                                 {% else %}
-                                  {% set area_value = existing_data[field.id] if field.id in existing_data else '' %}
+                                  {% set from_existing = existing_data[field.id] if field.id in existing_data else '' %}
+                                  {% set area_value = '' if from_existing is none else from_existing %}
                                 {% endif %}
-                                <textarea class="form-control{% if field_error %} is-invalid{% endif %}" id="field_{{ field.id }}" name="field_{{ field.id }}" rows="3" {% if field.required %}required{% endif %}>{{ area_value }}</textarea>
+                                <textarea class="form-control{% if field_error %} is-invalid{% endif %}" id="field_{{ field.id }}" name="field_{{ field.id }}" rows="3" {% if field.required %}required{% endif %}>{{ area_value if area_value is not none else '' }}</textarea>
                                 {% if field.help_text %}
                                   <div class="form-text">{{ field.help_text | replace('\n', '<br>') | safe }}</div>
                                 {% endif %}
@@ -73,9 +75,10 @@
                                 {% if request.method == 'POST' %}
                                   {% set int_value = posted_value if posted_value is not none else '' %}
                                 {% else %}
-                                  {% set int_value = existing_data[field.id] if field.id in existing_data else '' %}
+                                  {% set from_existing = existing_data[field.id] if field.id in existing_data else '' %}
+                                  {% set int_value = '' if from_existing is none else from_existing %}
                                 {% endif %}
-                                <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ int_value }}" min="0" step="1" {% if field.required %}required{% endif %}>
+                                <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ int_value if int_value is not none else '' }}" min="0" step="1" {% if field.required %}required{% endif %}>
                                 {% if field.help_text %}
                                   <div class="form-text">{{ field.help_text | replace('\n', '<br>') | safe }}</div>
                                 {% endif %}
@@ -86,9 +89,10 @@
                                 {% if request.method == 'POST' %}
                                   {% set date_value = posted_value if posted_value is not none else '' %}
                                 {% else %}
-                                  {% set date_value = existing_data[field.id] if field.id in existing_data else '' %}
+                                  {% set from_existing = existing_data[field.id] if field.id in existing_data else '' %}
+                                  {% set date_value = '' if from_existing is none else from_existing %}
                                 {% endif %}
-                                <input class="form-control{% if field_error %} is-invalid{% endif %}" type="date" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ date_value }}" {% if field.required %}required{% endif %}>
+                                <input class="form-control{% if field_error %} is-invalid{% endif %}" type="date" id="field_{{ field.id }}" name="field_{{ field.id }}" value="{{ date_value if date_value is not none else '' }}" {% if field.required %}required{% endif %}>
                                 {% if field.help_text %}
                                   <div class="form-text">{{ field.help_text | replace('\n', '<br>') | safe }}</div>
                                 {% endif %}
@@ -104,10 +108,11 @@
                                   {% set current_raw = posted_value if posted_value is not none else '' %}
                                   {% set other_prefill = posted_other if posted_other is not none else '' %}
                                 {% else %}
-                                  {% set current_raw = existing_data[field.id] if field.id in existing_data else '' %}
+                                  {% set raw_existing = existing_data[field.id] if field.id in existing_data else '' %}
+                                  {% set current_raw = '' if raw_existing is none else raw_existing %}
                                   {% set other_prefill = '' %}
                                 {% endif %}
-                                {% set select_value = current_raw %}
+                                {% set select_value = current_raw if current_raw is not none else '' %}
                                 {% if has_other and current_raw and current_raw not in choices and current_raw != 'NR' %}
                                   {% set select_value = 'Other (specify)' %}
                                   {% if not other_prefill %}
@@ -117,14 +122,14 @@
                                 <select class="form-select{% if has_other %} select-with-other{% endif %}{% if field_error %} is-invalid{% endif %}" id="field_{{ field.id }}" name="field_{{ field.id }}" {% if has_other %}data-other-input="field_{{ field.id }}_other" data-require-other="{{ 'true' if field.required else 'false' }}"{% endif %} {% if field.required %}required{% endif %}>
                                   <option value="">-- Select --</option>
                                   {% for c in choices %}
-                                    <option value="{{ c }}" {{ 'selected' if select_value==c else '' }}>{{ c }}</option>
+                                  <option value="{{ c }}" {{ 'selected' if select_value==c else '' }}>{{ c }}</option>
                                   {% endfor %}
                                   {% if include_nr %}
                                     <option value="NR" {{ 'selected' if select_value=='NR' else '' }}>NR (Not reported)</option>
                                   {% endif %}
                                 </select>
                                 {% if has_other %}
-                                  <input type="text" class="form-control mt-2 other-text-input{% if field_error %} is-invalid{% endif %}" id="field_{{ field.id }}_other" name="field_{{ field.id }}_other" value="{{ other_prefill }}" placeholder="Please specify" {% if select_value != 'Other (specify)' %}style="display:none;"{% endif %}>
+                                  <input type="text" class="form-control mt-2 other-text-input{% if field_error %} is-invalid{% endif %}" id="field_{{ field.id }}_other" name="field_{{ field.id }}_other" value="{{ other_prefill if other_prefill is not none else '' }}" placeholder="Please specify" {% if select_value != 'Other (specify)' %}style="display:none;"{% endif %}>
                                 {% endif %}
                                 {% if field.help_text %}
                                   <div class="form-text">{{ field.help_text | replace('\n', '<br>') | safe }}</div>
@@ -140,7 +145,8 @@
                                 {% if request.method == 'POST' %}
                                   {% set current = posted_value if posted_value is not none else '' %}
                                 {% else %}
-                                  {% set current = existing_data[field.id] if field.id in existing_data else '' %}
+                                  {% set raw_member_value = existing_data[field.id] if field.id in existing_data else '' %}
+                                  {% set current = '' if raw_member_value is none else raw_member_value %}
                                 {% endif %}
                                 {% set ns = namespace(match_found=False) %}
                                 {% if (field.label or '')|lower == 'assessor' %}
@@ -173,15 +179,17 @@
                                 {# This field type is now deprecated for numerical outcomes, but kept for compatibility #}
                                 {% set value_data = existing_data[field.id] | from_json if field.id in existing_data and existing_data[field.id] else {'events': '', 'total': ''} %}
                                 {% set events_prefill = request.form.get(field_name ~ '_events') if request.method == 'POST' else value_data.events %}
+                                {% if events_prefill is none %}{% set events_prefill = '' %}{% endif %}
                                 {% set total_prefill = request.form.get(field_name ~ '_total') if request.method == 'POST' else value_data.total %}
+                                {% if total_prefill is none %}{% set total_prefill = '' %}{% endif %}
                                 <div class="row g-3">
                                     <div class="col-6 col-md-3">
                                         <label class="form-label" for="field_{{ field.id }}_events">Events</label>
-                                        <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" id="field_{{ field.id }}_events" name="field_{{ field.id }}_events" value="{{ events_prefill }}" min="0" step="1">
+                                        <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" id="field_{{ field.id }}_events" name="field_{{ field.id }}_events" value="{{ events_prefill if events_prefill is not none else '' }}" min="0" step="1">
                                     </div>
                                     <div class="col-6 col-md-3">
                                         <label class="form-label" for="field_{{ field.id }}_total">Total</label>
-                                        <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" id="field_{{ field.id }}_total" name="field_{{ field.id }}_total" value="{{ total_prefill }}" min="0" step="1">
+                                        <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" id="field_{{ field.id }}_total" name="field_{{ field.id }}_total" value="{{ total_prefill if total_prefill is not none else '' }}" min="0" step="1">
                                     </div>
                                 </div>
                                 {% if field_error %}
@@ -190,9 +198,13 @@
                             {% elif field.field_type == 'baseline_continuous' %}
                                 {% set vd = existing_data[field.id] | from_json if field.id in existing_data and existing_data[field.id] else {'intervention': {'mean': '', 'sd': ''}, 'control': {'mean': '', 'sd': ''}} %}
                                 {% set int_mean_prefill = request.form.get(field_name ~ '_int_mean') if request.method == 'POST' else vd.intervention.mean %}
+                                {% if int_mean_prefill is none %}{% set int_mean_prefill = '' %}{% endif %}
                                 {% set int_sd_prefill = request.form.get(field_name ~ '_int_sd') if request.method == 'POST' else vd.intervention.sd %}
+                                {% if int_sd_prefill is none %}{% set int_sd_prefill = '' %}{% endif %}
                                 {% set ctrl_mean_prefill = request.form.get(field_name ~ '_ctrl_mean') if request.method == 'POST' else vd.control.mean %}
+                                {% if ctrl_mean_prefill is none %}{% set ctrl_mean_prefill = '' %}{% endif %}
                                 {% set ctrl_sd_prefill = request.form.get(field_name ~ '_ctrl_sd') if request.method == 'POST' else vd.control.sd %}
+                                {% if ctrl_sd_prefill is none %}{% set ctrl_sd_prefill = '' %}{% endif %}
                                 <div class="row g-3">
                                   <div class="col-12 col-lg-6">
                                     <div class="border rounded p-3 h-100">
@@ -200,11 +212,11 @@
                                       <div class="row g-3">
                                         <div class="col-6">
                                           <label class="form-label" for="field_{{ field.id }}_int_mean">Mean</label>
-                                          <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" step="0.01" id="field_{{ field.id }}_int_mean" name="field_{{ field.id }}_int_mean" value="{{ int_mean_prefill }}">
+                                          <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" step="0.01" id="field_{{ field.id }}_int_mean" name="field_{{ field.id }}_int_mean" value="{{ int_mean_prefill if int_mean_prefill is not none else '' }}">
                                         </div>
                                         <div class="col-6">
                                           <label class="form-label" for="field_{{ field.id }}_int_sd">SD</label>
-                                          <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" step="0.01" id="field_{{ field.id }}_int_sd" name="field_{{ field.id }}_int_sd" value="{{ int_sd_prefill }}">
+                                          <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" step="0.01" id="field_{{ field.id }}_int_sd" name="field_{{ field.id }}_int_sd" value="{{ int_sd_prefill if int_sd_prefill is not none else '' }}">
                                         </div>
                                       </div>
                                     </div>
@@ -215,11 +227,11 @@
                                       <div class="row g-3">
                                         <div class="col-6">
                                           <label class="form-label" for="field_{{ field.id }}_ctrl_mean">Mean</label>
-                                          <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" step="0.01" id="field_{{ field.id }}_ctrl_mean" name="field_{{ field.id }}_ctrl_mean" value="{{ ctrl_mean_prefill }}">
+                                          <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" step="0.01" id="field_{{ field.id }}_ctrl_mean" name="field_{{ field.id }}_ctrl_mean" value="{{ ctrl_mean_prefill if ctrl_mean_prefill is not none else '' }}">
                                         </div>
                                         <div class="col-6">
                                           <label class="form-label" for="field_{{ field.id }}_ctrl_sd">SD</label>
-                                          <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" step="0.01" id="field_{{ field.id }}_ctrl_sd" name="field_{{ field.id }}_ctrl_sd" value="{{ ctrl_sd_prefill }}">
+                                          <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" step="0.01" id="field_{{ field.id }}_ctrl_sd" name="field_{{ field.id }}_ctrl_sd" value="{{ ctrl_sd_prefill if ctrl_sd_prefill is not none else '' }}">
                                         </div>
                                       </div>
                                     </div>
@@ -231,20 +243,22 @@
                             {% elif field.field_type == 'baseline_categorical' %}
                                 {% set vdc = existing_data[field.id] | from_json if field.id in existing_data and existing_data[field.id] else {'intervention': {'percent': ''}, 'control': {'percent': ''}} %}
                                 {% set int_pct_prefill = request.form.get(field_name ~ '_int_pct') if request.method == 'POST' else vdc.intervention.percent %}
+                                {% if int_pct_prefill is none %}{% set int_pct_prefill = '' %}{% endif %}
                                 {% set ctrl_pct_prefill = request.form.get(field_name ~ '_ctrl_pct') if request.method == 'POST' else vdc.control.percent %}
+                                {% if ctrl_pct_prefill is none %}{% set ctrl_pct_prefill = '' %}{% endif %}
                                 <div class="row g-3">
                                   <div class="col-12 col-lg-6">
                                     <div class="border rounded p-3 h-100">
                                       <div class="fw-semibold mb-2">Intervention</div>
                                       <label class="form-label" for="field_{{ field.id }}_int_pct">Percentage (%)</label>
-                                      <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" step="0.01" min="0" max="100" id="field_{{ field.id }}_int_pct" name="field_{{ field.id }}_int_pct" value="{{ int_pct_prefill }}">
+                                      <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" step="0.01" min="0" max="100" id="field_{{ field.id }}_int_pct" name="field_{{ field.id }}_int_pct" value="{{ int_pct_prefill if int_pct_prefill is not none else '' }}">
                                     </div>
                                   </div>
                                   <div class="col-12 col-lg-6">
                                     <div class="border rounded p-3 h-100">
                                       <div class="fw-semibold mb-2">Control</div>
                                       <label class="form-label" for="field_{{ field.id }}_ctrl_pct">Percentage (%)</label>
-                                      <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" step="0.01" min="0" max="100" id="field_{{ field.id }}_ctrl_pct" name="field_{{ field.id }}_ctrl_pct" value="{{ ctrl_pct_prefill }}">
+                                      <input class="form-control{% if field_error %} is-invalid{% endif %}" type="number" step="0.01" min="0" max="100" id="field_{{ field.id }}_ctrl_pct" name="field_{{ field.id }}_ctrl_pct" value="{{ ctrl_pct_prefill if ctrl_pct_prefill is not none else '' }}">
                                     </div>
                                   </div>
                                 </div>
@@ -417,6 +431,8 @@
           toggleOther();
         });
 
+        const coalesce = (val) => (val === null || val === undefined ? '' : val);
+
         let numericalOutcomeCount = 0;
         const existingNumericalOutcomes = {{ existing_numerical_outcomes | tojson }}; // Passed from Flask
         let continuousOutcomeCount = 0;
@@ -462,7 +478,7 @@
 
         function gatherSectionPayload(sectionId, sectionName) {
             const container = document.getElementById(sectionId);
-            const inputs = container ? container.querySelectorAll('input, textarea') : [];
+            const inputs = container ? container.querySelectorAll('input, textarea, select') : [];
             const map = new Map();
             const fieldIdFrom = (name) => {
                 const m = name && name.match(/^field_(\d+)(?:_(events|total|int_mean|int_sd|ctrl_mean|ctrl_sd|int_pct|ctrl_pct|other))?$/);
@@ -471,28 +487,50 @@
             inputs.forEach((inp) => {
                 const meta = fieldIdFrom(inp.name);
                 if (!meta) return;
+                let value;
+                if (inp.tagName === 'INPUT') {
+                    const type = (inp.getAttribute('type') || '').toLowerCase();
+                    if (type === 'checkbox') {
+                        value = inp.checked ? (inp.value || 'on') : '';
+                    } else if (type === 'radio') {
+                        if (!inp.checked) {
+                            return;
+                        }
+                        value = inp.value;
+                    } else {
+                        value = inp.value;
+                    }
+                } else if (inp.tagName === 'SELECT') {
+                    if (inp.multiple) {
+                        value = Array.from(inp.selectedOptions || []).map(opt => opt.value).join(',');
+                    } else {
+                        value = inp.value;
+                    }
+                } else {
+                    value = inp.value;
+                }
                 const key = meta.id;
                 const cur = map.get(key) || { id: key };
                 if (meta.part === 'events') {
-                    cur.events = inp.value;
+                    cur.events = value;
                 } else if (meta.part === 'total') {
-                    cur.total = inp.value;
+                    cur.total = value;
                 } else if (meta.part === 'int_mean') {
-                    cur.int_mean = inp.value;
+                    cur.int_mean = value;
                 } else if (meta.part === 'int_sd') {
-                    cur.int_sd = inp.value;
+                    cur.int_sd = value;
                 } else if (meta.part === 'ctrl_mean') {
-                    cur.ctrl_mean = inp.value;
+                    cur.ctrl_mean = value;
                 } else if (meta.part === 'ctrl_sd') {
-                    cur.ctrl_sd = inp.value;
+                    cur.ctrl_sd = value;
                 } else if (meta.part === 'int_pct') {
-                    cur.int_pct = inp.value;
+                    cur.int_pct = value;
                 } else if (meta.part === 'ctrl_pct') {
-                    cur.ctrl_pct = inp.value;
+                    cur.ctrl_pct = value;
                 } else if (meta.part === 'other') {
-                    cur.other = inp.value;
+                    cur.other = value;
                 } else {
-                    cur.value = inp.value;
+                    cur.value = value;
                 }
                 map.set(key, cur);
             });
@@ -523,6 +561,7 @@
         }
 
         async function autosaveSection(sectionId, sectionName) {
+            setStatus(sectionId, 'Saving...', 'text-secondary');
             try {
                 let payload;
                 if (sectionId === 'numerical_outcomes') {
@@ -558,11 +597,11 @@
             const tr = document.createElement('tr');
             tr.setAttribute('id', `numerical-outcome-row-${numericalOutcomeCount}`);
             
-            const outcomeName = outcomeData ? outcomeData.outcome_name : '';
-            const eventsIntervention = outcomeData ? outcomeData.events_intervention : '';
-            const totalIntervention = outcomeData ? outcomeData.total_intervention : '';
-            const eventsControl = outcomeData ? outcomeData.events_control : '';
-            const totalControl = outcomeData ? outcomeData.total_control : '';
+            const outcomeName = outcomeData ? coalesce(outcomeData.outcome_name) : '';
+            const eventsIntervention = outcomeData ? coalesce(outcomeData.events_intervention) : '';
+            const totalIntervention = outcomeData ? coalesce(outcomeData.total_intervention) : '';
+            const eventsControl = outcomeData ? coalesce(outcomeData.events_control) : '';
+            const totalControl = outcomeData ? coalesce(outcomeData.total_control) : '';
 
             tr.innerHTML = `
               <td>
@@ -653,13 +692,13 @@
             const tr = document.createElement('tr');
             tr.setAttribute('id', `continuous-outcome-row-${continuousOutcomeCount}`);
 
-            const outcomeName = outcomeData ? outcomeData.outcome_name : '';
-            const mi = outcomeData ? outcomeData.mean_intervention : '';
-            const sdi = outcomeData ? outcomeData.sd_intervention : '';
-            const ni = outcomeData ? outcomeData.n_intervention : '';
-            const mc = outcomeData ? outcomeData.mean_control : '';
-            const sdc = outcomeData ? outcomeData.sd_control : '';
-            const nc = outcomeData ? outcomeData.n_control : '';
+            const outcomeName = outcomeData ? coalesce(outcomeData.outcome_name) : '';
+            const mi = outcomeData ? coalesce(outcomeData.mean_intervention) : '';
+            const sdi = outcomeData ? coalesce(outcomeData.sd_intervention) : '';
+            const ni = outcomeData ? coalesce(outcomeData.n_intervention) : '';
+            const mc = outcomeData ? coalesce(outcomeData.mean_control) : '';
+            const sdc = outcomeData ? coalesce(outcomeData.sd_control) : '';
+            const nc = outcomeData ? coalesce(outcomeData.n_control) : '';
 
             tr.innerHTML = `
               <td>
