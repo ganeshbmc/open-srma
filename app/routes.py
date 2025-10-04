@@ -748,6 +748,9 @@ def add_form_field(project_id):
         )
         if row[0]
     ]
+    prefill_section = (request.args.get('section') or '').strip()
+    if request.method == 'GET' and prefill_section:
+        form.section.data = prefill_section
     if form.validate_on_submit():
         ms = get_membership_for(project.id)
         if not (is_admin() or (ms and (ms.role or '').lower() == 'owner')):
