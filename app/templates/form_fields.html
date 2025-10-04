@@ -30,7 +30,8 @@
       <div class="card mt-4">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h4 class="mb-0 h5">{{ sec.name }}</h4>
-          <div class="d-flex align-items-center gap-1">
+          <div class="d-flex align-items-center gap-2">
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('add_form_field', project_id=project.id, section=sec.name) }}">Add Field</a>
             <form method="POST" action="{{ url_for('move_form_section_up', project_id=project.id, section=sec.name) }}" style="display:inline" {% if not (current_user.is_admin or (project.memberships.filter_by(user_id=current_user.id, role='owner').first())) %}data-requires-reason="true"{% endif %}>
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button class="btn btn-sm btn-outline-secondary" type="submit" title="Move Section Up" {% if loop.first %}disabled{% endif %}>↑</button>
